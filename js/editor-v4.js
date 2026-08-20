@@ -1,24 +1,408 @@
-(function(){
-'use strict';
-function init(){const A=window.SNESStudio;if(!A)return;const bar=document.getElementById('toolbar'),canvas=document.getElementById('editor');
- const group=document.createElement('span');group.className='v4tools';group.innerHTML='<select id="v4layer" title="Camada"><option value="background">Fundo</option><option value="ground" selected>Terreno</option><option value="foreground">Frente</option></select><button id="v4auto" title="Cria superfícies e miolo automaticamente">Auto-tile</button><button id="v4fill" title="Preencher área">▧ Balde</button><button id="v4select" title="Selecionar região">▣ Seleção</button><button id="v4copy">Copiar</button><button id="v4paste">Colar</button><button id="v4minus">−</button><span id="v4zoom">100%</span><button id="v4plus">＋</button>';
- bar.insertBefore(group,bar.querySelector('.spacer'));
- let active='ground',zoom=1,mode='paint',start=null,selection=null,clip=null;
- function setupScene(){const s=A.scene();if(!s.layers)s.layers={background:A.blankMap(),ground:s.map,foreground:A.blankMap()};if(s.map!==s.layers[active])s.map=s.layers[active]}
- setupScene();
- document.getElementById('v4layer').onchange=e=>{const s=A.scene();setupScene();s.layers[active]=s.map;active=e.target.value;s.map=s.layers[active];A.renderAll();A.toast('Camada: '+e.target.options[e.target.selectedIndex].text)};
- function fit(){canvas.style.width=Math.round(Math.min(innerWidth*.72,960)*zoom)+'px';document.getElementById('v4zoom').textContent=Math.round(zoom*100)+'%'}
- document.getElementById('v4minus').onclick=()=>{zoom=Math.max(.5,zoom-.25);fit()};document.getElementById('v4plus').onclick=()=>{zoom=Math.min(3,zoom+.25);fit()};
- document.getElementById('v4fill').onclick=()=>{setupScene();const m=A.scene().map,from=m[0][0],to=A.selectedTile;if(from===to)return;A.pushHistory();const q=[[0,0]],seen=new Set;while(q.length){const [x,y]=q.pop(),k=x+','+y;if(x<0||y<0||x>=32||y>=18||seen.has(k)||m[y][x]!==from)continue;seen.add(k);m[y][x]=to;q.push([x+1,y],[x-1,y],[x,y+1],[x,y-1])}A.drawGrid();A.toast('Área preenchida')};
- document.getElementById('v4auto').onclick=()=>{setupScene();const m=A.scene().map;A.pushHistory();for(let y=0;y<18;y++)for(let x=0;x<32;x++)if(m[y][x]!==0)m[y][x]=(y===0||m[y-1][x]===0)?1:2;A.drawGrid();A.toast('Auto-tile aplicado: superfície e preenchimento')};
- document.getElementById('v4select').onclick=()=>{mode=mode==='select'?'paint':'select';document.getElementById('v4select').classList.toggle('active',mode==='select');A.toast(mode==='select'?'Arraste no mapa para selecionar':'Pincel ativado')};
- function pos(e){const r=canvas.getBoundingClientRect();return{x:Math.max(0,Math.min(31,Math.floor((e.clientX-r.left)*512/r.width/16))),y:Math.max(0,Math.min(17,Math.floor((e.clientY-r.top)*288/r.height/16)))}}
- canvas.addEventListener('mousedown',e=>{if(mode!=='select'||A.playing)return;e.stopImmediatePropagation();start=pos(e)},true);
- canvas.addEventListener('mouseup',e=>{if(mode!=='select'||!start)return;e.stopImmediatePropagation();const p=pos(e);selection={x1:Math.min(start.x,p.x),y1:Math.min(start.y,p.y),x2:Math.max(start.x,p.x),y2:Math.max(start.y,p.y)};start=null;A.toast('Seleção '+(selection.x2-selection.x1+1)+'×'+(selection.y2-selection.y1+1))},true);
- document.getElementById('v4copy').onclick=()=>{if(!selection)return A.toast('Faça uma seleção primeiro');const m=A.scene().map;clip=[];for(let y=selection.y1;y<=selection.y2;y++)clip.push(m[y].slice(selection.x1,selection.x2+1));A.toast('Seleção copiada')};
- document.getElementById('v4paste').onclick=()=>{if(!clip)return A.toast('Nada copiado');const x=selection?selection.x1:0,y=selection?selection.y1:0,m=A.scene().map;A.pushHistory();clip.forEach((r,dy)=>r.forEach((v,dx)=>{if(m[y+dy]&&m[y+dy][x+dx]!=null)m[y+dy][x+dx]=v}));A.drawGrid();A.toast('Seleção colada')};
- const oldRender=A.renderAll;A.renderAll=function(){setupScene();oldRender();};
- document.addEventListener('click',e=>{if(['playBtn','exportBtn','exportSnesBtn'].includes(e.target.id)){setupScene();A.scene().layers[active]=A.scene().map;active='ground';A.scene().map=A.scene().layers.ground;document.getElementById('v4layer').value='ground'}else queueMicrotask(setupScene)},true);
-}
-window.addEventListener('snesstudio:ready',init);if(window.SNESStudio)init();
+/**
+ * SNES Engine Studio 0.6 — Editor de camadas, auto-tile, balde, seleção
+ * Camadas reais: background, ground, foreground (todas visíveis)
+ */
+(function () {
+  'use strict';
+
+  function init() {
+    const A = window.SNESStudio;
+    if (!A) return;
+    const bar = document.getElementById('toolbar');
+    const canvas = document.getElementById('editor');
+    if (!bar || !canvas) return;
+
+    // Evitar dupla inicialização
+    if (document.getElementById('v4layer')) return;
+
+    const group = document.createElement('span');
+    group.className = 'v4tools';
+    group.innerHTML =
+      '<select id="v4layer" title="Camada ativa">' +
+      '<option value="background">Fundo</option>' +
+      '<option value="ground" selected>Terreno</option>' +
+      '<option value="foreground">Frente</option>' +
+      '</select>' +
+      '<button id="v4visBg" title="Mostrar/ocultar fundo" class="layerVis active">B</button>' +
+      '<button id="v4visGr" title="Mostrar/ocultar terreno" class="layerVis active">G</button>' +
+      '<button id="v4visFg" title="Mostrar/ocultar frente" class="layerVis active">F</button>' +
+      '<button id="v4lock" title="Bloquear camada ativa">🔓</button>' +
+      '<button id="v4auto" title="Auto-tile (vizinhos)">Auto-tile</button>' +
+      '<button id="v4autoToggle" title="Auto-tile ao pintar" class="">AT</button>' +
+      '<button id="v4fill" title="Preencher área (clique)">▧ Balde</button>' +
+      '<button id="v4select" title="Selecionar região">▣ Seleção</button>' +
+      '<button id="v4copy">Copiar</button>' +
+      '<button id="v4paste">Colar</button>' +
+      '<button id="v4minus">−</button>' +
+      '<span id="v4zoom">100%</span>' +
+      '<button id="v4plus">＋</button>';
+    bar.insertBefore(group, bar.querySelector('.spacer'));
+
+    let active = 'ground';
+    let zoom = 1;
+    let mode = 'paint'; // paint | fill | select
+    let start = null;
+    let selection = null;
+    let clip = null;
+    let autoOnPaint = false;
+    const locked = { background: false, ground: false, foreground: false };
+    const visible = { background: true, ground: true, foreground: true };
+
+    function ensure(s) {
+      if (window.SNESRuntime) return window.SNESRuntime.ensureLayers(s);
+      if (!s.layers) {
+        const map = s.map || A.blankMap();
+        s.layers = {
+          background: A.blankMap(),
+          ground: map.map ? map.map(r => r.slice()) : A.blankMap(),
+          foreground: A.blankMap()
+        };
+      }
+      s.map = s.layers.ground;
+      return s.layers;
+    }
+
+    function activeMap() {
+      const s = A.scene();
+      ensure(s);
+      return s.layers[active];
+    }
+
+    // ---- Auto-tile por 8 vizinhos ----
+    // Índices típicos: 0 vazio, 1 superfície/grama, 2 miolo/terra, 3+ especiais (não tocados)
+    function isFilled(m, x, y) {
+      if (x < 0 || y < 0 || x >= 32 || y >= 18) return true; // borda conta como sólido para cantos
+      return m[y][x] !== 0;
+    }
+
+    function autoTileCell(m, x, y) {
+      if (x < 0 || y < 0 || x >= 32 || y >= 18) return;
+      const cur = m[y][x];
+      // Não alterar vazios nem tiles especiais (>=3)
+      if (cur === 0 || cur >= 3) return;
+      const N = isFilled(m, x, y - 1);
+      const S = isFilled(m, x, y + 1);
+      const W = isFilled(m, x - 1, y);
+      const E = isFilled(m, x + 1, y);
+      // Superfície se não há vizinho acima
+      if (!N) m[y][x] = 1;
+      else m[y][x] = 2;
+    }
+
+    function autoTileRegion(m, cells) {
+      const set = new Set();
+      cells.forEach(([x, y]) => {
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++)
+            set.add((x + dx) + ',' + (y + dy));
+      });
+      set.forEach(k => {
+        const [x, y] = k.split(',').map(Number);
+        autoTileCell(m, x, y);
+      });
+    }
+
+    // ---- UI handlers ----
+    document.getElementById('v4layer').onchange = e => {
+      active = e.target.value;
+      A.toast('Camada ativa: ' + e.target.options[e.target.selectedIndex].text);
+      updateLockBtn();
+      A.drawGrid();
+    };
+
+    function updateLockBtn() {
+      const b = document.getElementById('v4lock');
+      b.textContent = locked[active] ? '🔒' : '🔓';
+      b.classList.toggle('active', locked[active]);
+    }
+
+    document.getElementById('v4lock').onclick = () => {
+      locked[active] = !locked[active];
+      updateLockBtn();
+      A.toast(locked[active] ? 'Camada bloqueada' : 'Camada desbloqueada');
+    };
+
+    function toggleVis(key, btnId) {
+      visible[key] = !visible[key];
+      document.getElementById(btnId).classList.toggle('active', visible[key]);
+      A.drawGrid();
+    }
+    document.getElementById('v4visBg').onclick = () => toggleVis('background', 'v4visBg');
+    document.getElementById('v4visGr').onclick = () => toggleVis('ground', 'v4visGr');
+    document.getElementById('v4visFg').onclick = () => toggleVis('foreground', 'v4visFg');
+
+    document.getElementById('v4autoToggle').onclick = e => {
+      autoOnPaint = !autoOnPaint;
+      e.target.classList.toggle('active', autoOnPaint);
+      A.toast(autoOnPaint ? 'Auto-tile ao pintar: ON' : 'Auto-tile ao pintar: OFF');
+    };
+
+    document.getElementById('v4auto').onclick = () => {
+      if (locked[active]) return A.toast('Camada bloqueada');
+      const m = activeMap();
+      A.pushHistory();
+      const cells = [];
+      for (let y = 0; y < 18; y++)
+        for (let x = 0; x < 32; x++)
+          if (m[y][x] !== 0 && m[y][x] < 3) cells.push([x, y]);
+      autoTileRegion(m, cells);
+      A.drawGrid();
+      A.toast('Auto-tile aplicado na camada ativa');
+    };
+
+    let zoomFit = () => {
+      canvas.style.width = Math.round(Math.min(innerWidth * 0.72, 960) * zoom) + 'px';
+      document.getElementById('v4zoom').textContent = Math.round(zoom * 100) + '%';
+    };
+    document.getElementById('v4minus').onclick = () => { zoom = Math.max(0.5, zoom - 0.25); zoomFit(); };
+    document.getElementById('v4plus').onclick = () => { zoom = Math.min(3, zoom + 0.25); zoomFit(); };
+
+    document.getElementById('v4fill').onclick = () => {
+      mode = mode === 'fill' ? 'paint' : 'fill';
+      document.getElementById('v4fill').classList.toggle('active', mode === 'fill');
+      document.getElementById('v4select').classList.remove('active');
+      if (mode === 'select') mode = 'fill';
+      A.toast(mode === 'fill' ? 'Balde: clique no mapa' : 'Pincel ativado');
+    };
+
+    document.getElementById('v4select').onclick = () => {
+      mode = mode === 'select' ? 'paint' : 'select';
+      document.getElementById('v4select').classList.toggle('active', mode === 'select');
+      document.getElementById('v4fill').classList.remove('active');
+      A.toast(mode === 'select' ? 'Arraste para selecionar' : 'Pincel ativado');
+    };
+
+    function pos(e) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(31, Math.floor((e.clientX - r.left) * 512 / r.width / 16))),
+        y: Math.max(0, Math.min(17, Math.floor((e.clientY - r.top) * 288 / r.height / 16)))
+      };
+    }
+
+    function floodFill(m, sx, sy, to) {
+      const from = m[sy][sx];
+      if (from === to) return;
+      const q = [[sx, sy]];
+      const seen = new Set();
+      while (q.length) {
+        const [x, y] = q.pop();
+        const k = x + ',' + y;
+        if (x < 0 || y < 0 || x >= 32 || y >= 18 || seen.has(k) || m[y][x] !== from) continue;
+        seen.add(k);
+        m[y][x] = to;
+        q.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+      }
+      return [...seen].map(k => k.split(',').map(Number));
+    }
+
+    // Interceptar pintura na camada ativa
+    canvas.addEventListener('mousedown', e => {
+      if (A.playing || A.view !== 'map') return;
+      if (locked[active]) {
+        if (mode === 'paint' || mode === 'fill') {
+          e.stopImmediatePropagation();
+          A.toast('Camada bloqueada');
+          return;
+        }
+      }
+      const p = pos(e);
+
+      if (mode === 'fill' && e.button === 0) {
+        e.stopImmediatePropagation();
+        const m = activeMap();
+        A.pushHistory();
+        const cells = floodFill(m, p.x, p.y, A.selectedTile);
+        if (autoOnPaint && cells) autoTileRegion(m, cells);
+        A.drawGrid();
+        return;
+      }
+
+      if (mode === 'select') {
+        e.stopImmediatePropagation();
+        start = p;
+        return;
+      }
+
+      // Pintura normal: aplicar na camada ativa
+      if (e.button === 0) {
+        e.stopImmediatePropagation();
+        const m = activeMap();
+        if (m[p.y][p.x] !== A.selectedTile) {
+          A.pushHistory();
+          m[p.y][p.x] = A.selectedTile;
+          if (autoOnPaint) autoTileRegion(m, [[p.x, p.y]]);
+          A.drawGrid();
+        }
+        // Continuar arrasto
+        const onMove = ev => {
+          const q = pos(ev);
+          if (m[q.y][q.x] !== A.selectedTile) {
+            m[q.y][q.x] = A.selectedTile;
+            if (autoOnPaint) autoTileRegion(m, [[q.x, q.y]]);
+            A.drawGrid();
+          }
+        };
+        const onUp = () => {
+          canvas.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+        canvas.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+    }, true);
+
+    canvas.addEventListener('contextmenu', e => {
+      if (A.playing || A.view !== 'map') return;
+      if (locked[active]) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const p = pos(e);
+      const m = activeMap();
+      A.pushHistory();
+      m[p.y][p.x] = 0;
+      if (autoOnPaint) autoTileRegion(m, [[p.x, p.y]]);
+      A.drawGrid();
+    }, true);
+
+    canvas.addEventListener('mouseup', e => {
+      if (mode !== 'select' || !start) return;
+      e.stopImmediatePropagation();
+      const p = pos(e);
+      selection = {
+        x1: Math.min(start.x, p.x), y1: Math.min(start.y, p.y),
+        x2: Math.max(start.x, p.x), y2: Math.max(start.y, p.y)
+      };
+      start = null;
+      A.toast('Seleção ' + (selection.x2 - selection.x1 + 1) + '×' + (selection.y2 - selection.y1 + 1));
+    }, true);
+
+    document.getElementById('v4copy').onclick = () => {
+      if (!selection) return A.toast('Faça uma seleção primeiro');
+      const m = activeMap();
+      clip = [];
+      for (let y = selection.y1; y <= selection.y2; y++)
+        clip.push(m[y].slice(selection.x1, selection.x2 + 1));
+      A.toast('Seleção copiada');
+    };
+
+    document.getElementById('v4paste').onclick = () => {
+      if (!clip) return A.toast('Nada copiado');
+      if (locked[active]) return A.toast('Camada bloqueada');
+      const x = selection ? selection.x1 : 0;
+      const y = selection ? selection.y1 : 0;
+      const m = activeMap();
+      A.pushHistory();
+      clip.forEach((r, dy) => r.forEach((v, dx) => {
+        if (m[y + dy] && m[y + dy][x + dx] != null) m[y + dy][x + dx] = v;
+      }));
+      A.drawGrid();
+      A.toast('Seleção colada');
+    };
+
+    // Redesenhar grid com todas as camadas
+    const R = window.SNESRuntime;
+    const oldDraw = A.drawGrid;
+    A.drawGrid = function () {
+      if (A.playing) return; // runtime desenha durante play
+      const s = A.scene();
+      ensure(s);
+      const ctx = canvas.getContext('2d');
+      const theme = A.curTheme();
+      const tiles = theme.tiles;
+      ctx.clearRect(0, 0, 512, 288);
+
+      const order = ['background', 'ground', 'foreground'];
+      order.forEach(layer => {
+        if (!visible[layer]) return;
+        const m = s.layers[layer];
+        const alpha = layer === active ? 1 : 0.55;
+        ctx.globalAlpha = alpha;
+        for (let y = 0; y < 18; y++)
+          for (let x = 0; x < 32; x++) {
+            const id = m[y][x];
+            if (layer === 'background' || id) {
+              if (R) R.drawTileAt(ctx, tiles[id] || tiles[0], x * 16, y * 16, 16);
+              else {
+                // fallback
+                const t = tiles[id] || tiles[0];
+                ctx.fillStyle = t.color;
+                ctx.fillRect(x * 16, y * 16, 16, 16);
+              }
+            }
+          }
+      });
+      ctx.globalAlpha = 1;
+
+      // Grade
+      ctx.strokeStyle = '#ffffff16';
+      for (let x = 0; x <= 32; x++) {
+        ctx.beginPath(); ctx.moveTo(x * 16, 0); ctx.lineTo(x * 16, 288); ctx.stroke();
+      }
+      for (let y = 0; y <= 18; y++) {
+        ctx.beginPath(); ctx.moveTo(0, y * 16); ctx.lineTo(512, y * 16); ctx.stroke();
+      }
+
+      // Entidades
+      if (!A.playing) {
+        const drawEnt = A._drawEntityAt || null;
+        s.entities.forEach(e => {
+          if (e.type === 'enemy' && e.sprite === 'skeleton' && window.SkeletonSprite) {
+            window.SkeletonSprite.draw(ctx, e);
+          } else if (drawEnt) {
+            drawEnt(ctx, e, theme);
+          } else {
+            ctx.fillStyle = e.type === 'player' ? '#55d6a0' : e.type === 'enemy' ? '#c84c72' : '#f7b32b';
+            ctx.fillRect(e.x, e.y, 14, 14);
+          }
+        });
+        if (A.selectedEntity) {
+          const sel = s.entities.find(e => e.id === A.selectedEntity);
+          if (sel) {
+            ctx.strokeStyle = '#f7b32b';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 2]);
+            ctx.strokeRect(sel.x - 3, sel.y - 3, 20, 20);
+            ctx.setLineDash([]);
+          }
+        }
+      }
+
+      // Overlay seleção
+      if (selection && mode === 'select') {
+        ctx.strokeStyle = '#4aa0e0';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(selection.x1 * 16, selection.y1 * 16,
+          (selection.x2 - selection.x1 + 1) * 16, (selection.y2 - selection.y1 + 1) * 16);
+      }
+    };
+
+    // Expor camada ativa e visibilidade para o core
+    A._editorLayers = { get active() { return active; }, visible, locked, ensure };
+
+    // Migrar cenas ao renderizar
+    const oldRender = A.renderAll;
+    A.renderAll = function () {
+      A.project.scenes.forEach(ensure);
+      oldRender();
+    };
+
+    // Garantir layers antes de play/export
+    document.addEventListener('click', e => {
+      if (['playBtn', 'exportBtn', 'exportSnesBtn'].includes(e.target.id)) {
+        A.project.scenes.forEach(ensure);
+      }
+    }, true);
+
+    // Primeira migração
+    A.project.scenes.forEach(ensure);
+    A.drawGrid();
+  }
+
+  window.addEventListener('snesstudio:ready', init);
+  if (window.SNESStudio) init();
 })();

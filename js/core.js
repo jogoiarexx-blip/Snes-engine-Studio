@@ -135,8 +135,34 @@ function enemyList(themeId){return ENEMY_VARIANTS[themeId]||ENEMY_VARIANTS.flore
 const clone=o=>JSON.parse(JSON.stringify(o));
 function blankMap(){return Array.from({length:ROWS},()=>Array(COLS).fill(0));}
 function sampleMap(){const m=blankMap();for(let x=0;x<COLS;x++){m[16][x]=2;m[17][x]=2}for(let x=2;x<8;x++)m[13][x]=1;for(let x=11;x<17;x++)m[11][x]=1;for(let x=21;x<27;x++)m[14][x]=1;for(let x=28;x<31;x++)m[10][x]=1;return m}
-function defaultProject(){return {version:6,name:'Meu Jogo',settings:{type:'platform',width:512,height:288,tileSize:16},scenes:[{id:'scene1',name:'Fase 1',themeId:'floresta',map:sampleMap(),entities:[{id:'player',type:'player',name:'Player',x:32,y:240,hp:3,speed:120,jump:300},{id:'slime1',type:'enemy',name:'Lobo',x:220,y:220,hp:1,speed:35},{id:'coin1',type:'item',name:'Moeda',x:320,y:180,hp:1},{id:'obj1',type:'object',name:'Pedra',sub:'pedra_obj',x:120,y:216}]}],currentScene:'scene1'}}
-let project=defaultProject(),view='map',selectedTile=1,selectedEntity=null,playing=false,history=[],future=[];
+function defaultProject(){const m=sampleMap();return {version:'0.6',name:'Meu Jogo',settings:{type:'platform',width:512,height:288,tileSize:16},scenes:[{id:'scene1',name:'Fase 1',themeId:'floresta',map:m,layers:{background:blankMap(),ground:m.map(r=>r.slice()),foreground:blankMap()},entities:[{id:'player',type:'player',name:'Player',x:32,y:240,hp:3,speed:120,jump:300},{id:'slime1',type:'enemy',name:'Lobo',x:220,y:220,hp:1,speed:35},{id:'coin1',type:'item',name:'Moeda',x:320,y:180,hp:1},{id:'obj1',type:'object',name:'Pedra',sub:'pedra_obj',x:120,y:216}]}],currentScene:'scene1',world:{nodes:{},start:'scene1'}}}
+
+function migrateProject(p){
+  if(!p||typeof p!=='object')return defaultProject();
+  p.version=p.version||'0.6';
+  if(!p.settings)p.settings={type:'platform',width:512,height:288,tileSize:16};
+  if(p.settings.type&&p.settings.type!=='platform'){
+    // manter tipo mas avisar no status depois
+  }
+  if(!Array.isArray(p.scenes)||!p.scenes.length)p.scenes=defaultProject().scenes;
+  p.scenes.forEach(s=>{
+    if(!s.themeId)s.themeId='floresta';
+    if(!Array.isArray(s.entities))s.entities=[];
+    if(!s.layers){
+      const map=Array.isArray(s.map)?s.map:blankMap();
+      s.layers={background:blankMap(),ground:map.map?map.map(r=>r.slice()):blankMap(),foreground:blankMap()};
+    }
+    if(!s.layers.background)s.layers.background=blankMap();
+    if(!s.layers.ground)s.layers.ground=(Array.isArray(s.map)?s.map.map(r=>r.slice()):blankMap());
+    if(!s.layers.foreground)s.layers.foreground=blankMap();
+    s.map=s.layers.ground;
+  });
+  if(!p.currentScene)p.currentScene=p.scenes[0].id;
+  if(!p.world)p.world={nodes:{},start:p.currentScene};
+  return p;
+}
+
+let project=migrateProject(defaultProject()),view='map',selectedTile=1,selectedEntity=null,playing=false,history=[],future=[];
 const $=id=>document.getElementById(id);const scene=()=>project.scenes.find(s=>s.id===project.currentScene)||project.scenes[0];
 function curTheme(){const t=THEMES[scene().themeId];return t||THEMES.floresta}
 function curTiles(){return curTheme().tiles}
@@ -201,10 +227,10 @@ if(view==='map'){
  p.innerHTML='<div class="card"><h3>CENAS</h3><button id="addScene">＋ Nova fase</button></div><div id="scenesPanel"></div>';
  const q=$('scenesPanel');
  project.scenes.forEach(s=>{const t=THEMES[s.themeId]||THEMES.floresta;const d=document.createElement('div');d.className='scene-item '+(s.id===project.currentScene?'active':'');d.innerHTML='<b>'+s.name+'</b><div class="badge">'+t.emoji+' '+t.name+' · '+s.map[0].length+'×'+s.map.length+' · '+s.entities.length+' entidades</div>';d.onclick=()=>{project.currentScene=s.id;selectedEntity=null;renderAll();mark()};q.appendChild(d)});
- $('addScene').onclick=()=>{pushHistory();const id='scene'+Date.now();project.scenes.push({id,name:'Fase '+(project.scenes.length+1),themeId:'floresta',map:blankMap(),entities:[]});project.currentScene=id;renderAll()};
+ $('addScene').onclick=()=>{pushHistory();const id='scene'+Date.now();const nm=blankMap();project.scenes.push({id,name:'Fase '+(project.scenes.length+1),themeId:'floresta',map:nm,layers:{background:blankMap(),ground:nm.map(r=>r.slice()),foreground:blankMap()},entities:[]});project.currentScene=id;renderAll()};
 }else{
  p.innerHTML='<div class="card"><h3>CONFIGURAÇÕES DO PROJETO</h3><div class="row"><label>Nome</label><input id="pname" value="'+project.name+'"></div><div class="row"><label>Tipo</label><select id="ptype"><option value="platform">Plataforma</option><option value="topdown">Top-down</option><option value="shooter">Shooter</option><option value="arcade">Arcade</option></select></div><div class="row"><label>Resolução</label><span>512×288</span></div><p class="badge">O projeto guarda mapas, cenas, tema visual e entidades. O runtime lê esses dados para executar o jogo.</p></div><div class="card"><h3>ARQUITETURA</h3><div class="badge">Engine Core → Tilesets (V3) → Project Data → Editor → Runtime → Export</div></div>';
- $('pname').onchange=e=>{project.name=e.target.value;$('projectName').value=project.name;mark()};$('ptype').value=project.settings.type;$('ptype').onchange=e=>{project.settings.type=e.target.value;mark()};
+ $('pname').onchange=e=>{project.name=e.target.value;$('projectName').value=project.name;mark()};$('ptype').value=project.settings.type;$('ptype').onchange=e=>{const v=e.target.value;if(v!=='platform'){toast('Modo '+v+' em desenvolvimento — use Plataforma');e.target.value='platform';project.settings.type='platform'}else project.settings.type=v;mark()};
 }}
 
 function editEntity(e){view='entities';renderRight();const p=$('rightPanel');const c=document.createElement('div');c.className='card';
@@ -230,21 +256,50 @@ function renderSceneList(){const q=$('sceneList');q.innerHTML='';project.scenes.
 function renderAll(){renderSceneList();renderRight();drawGrid();$('projectName').value=project.name;$('stopBtn').classList.toggle('hidden',!playing);$('playBtn').classList.toggle('hidden',playing);$('toolInfo').textContent='Mapa '+COLS+'×'+ROWS+' · 16px · Tema: '+curTheme().emoji+' '+curTheme().name}
 function undo(){if(!history.length)return;future.push(clone(project));project=history.pop();renderAll();toast('Desfeito')}
 function redo(){if(!future.length)return;history.push(clone(project));project=future.pop();renderAll();toast('Refeito')}
-$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('clearBtn').onclick=()=>{if(confirm('Limpar todo o mapa da cena?')){pushHistory();scene().map=blankMap();drawGrid()}};
+$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('clearBtn').onclick=()=>{if(confirm('Limpar a camada de terreno da cena?')){pushHistory();const s=scene();const m=blankMap();if(s.layers){s.layers.ground=m;s.map=m}else s.map=m;drawGrid()}};
 $('newBtn').onclick=()=>{if(confirm('Criar novo projeto?')){project=defaultProject();history=[];future=[];renderAll();toast('Novo projeto criado')}};
 $('saveBtn').onclick=()=>{localStorage.setItem(KEY,JSON.stringify(project));$('dirty').textContent='✓';$('dirty').style.color='#62d38b';toast('Projeto salvo no navegador')};
-$('loadBtn').onclick=()=>{const raw=localStorage.getItem(KEY)||localStorage.getItem('snes_engine_studio_project_v3')||localStorage.getItem('snes_engine_studio_project_v2');if(!raw)return toast('Nenhum projeto salvo');try{project=JSON.parse(raw);project.version=6;project.scenes.forEach(s=>{if(!s.themeId)s.themeId='floresta'});renderAll();toast('Projeto carregado e migrado para V6')}catch(e){toast('Arquivo inválido')}};
+$('loadBtn').onclick=()=>{const raw=localStorage.getItem(KEY)||localStorage.getItem('snes_engine_studio_project_v3')||localStorage.getItem('snes_engine_studio_project_v2');if(!raw)return toast('Nenhum projeto salvo');try{project=migrateProject(JSON.parse(raw));renderAll();toast('Projeto carregado e migrado para 0.6')}catch(e){toast('Arquivo inválido')}};
 function downloadFile(name,data,type){const blob=new Blob([data],{type:type||'application/octet-stream'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 $('exportBtn').onclick=()=>{const html=buildExport();downloadFile((project.name||'meu-jogo').replace(/[^a-z0-9-_]+/gi,'_')+'.html',html,'text/html');toast('Jogo HTML exportado')};
 $('exportSnesBtn').onclick=()=>exportSnesBundle();
 $('projectName').onchange=e=>{project.name=e.target.value;mark()};document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{view=b.dataset.view;document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderRight();drawGrid()});
 $('playBtn').onclick=()=>startPlay();$('stopBtn').onclick=()=>stopPlay();
-function startPlay(){playing=true;view='map';lastFrame=0;startState();$('status').textContent='TESTANDO: setas/A-D mover · Z pular · X/C atacar · ESC parar';renderAll();requestAnimationFrame(gameLoop)}function stopPlay(){playing=false;renderAll()}
-let game={x:32,y:200,vx:0,vy:0,hp:3,onGround:false,score:0,speed:120,jump:300};function startState(){const p=scene().entities.find(e=>e.type==='player')||{x:32,y:200,hp:3,speed:120,jump:300};game={x:p.x,y:p.y,vx:0,vy:0,hp:p.hp||3,onGround:false,score:0,speed:p.speed||120,jump:p.jump||300}}
-const keys={};window.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Escape'&&playing)stopPlay()});window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-function isSolid(px,py){const gx=Math.floor(px/T),gy=Math.floor(py/T);if(gx<0||gx>=COLS||gy<0||gy>=ROWS)return true;const tiles=curTiles();const t=tiles[scene().map[gy][gx]]||tiles[0];return !!t.solid}
-let lastFrame=0;function gameLoop(now){if(!playing)return;const dt=Math.min(.033,lastFrame?(now-lastFrame)/1000:1/60);lastFrame=now;const speed=game.speed;game.vx=((keys.arrowleft||keys.a)?-speed:0)+((keys.arrowright||keys.d)?speed:0);if((keys.z||keys[' '])&&game.onGround){game.vy=-game.jump;game.onGround=false}game.vy+=650*dt;let nx=game.x+game.vx*dt,ny=game.y+game.vy*dt;if(!isSolid(nx,game.y+10)&&!isSolid(nx+12,game.y+10))game.x=Math.max(0,Math.min(W-14,nx));if(game.vy>=0&&(isSolid(game.x+2,ny+14)||isSolid(game.x+11,ny+14))){game.y=Math.floor((ny+14)/T)*T-14;game.vy=0;game.onGround=true}else if(game.vy<0&&!isSolid(game.x+2,ny)&&!isSolid(game.x+11,ny))game.y=ny;else if(game.vy<0)game.vy=0;drawRuntime();requestAnimationFrame(gameLoop)}
-function drawRuntime(){const s=scene();const theme=curTheme();const tiles=theme.tiles;ctx.clearRect(0,0,W,H);for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)drawTileAt(ctx,tiles[s.map[y][x]]||tiles[0],x*T,y*T,T);for(const e of s.entities){if(e.type!=='player')drawEntityAt(ctx,e,theme)}ctx.fillStyle='#55d6a0';ctx.fillRect(game.x,game.y,12,14);ctx.fillStyle='#222';ctx.fillRect(game.x+3,game.y+3,2,2);ctx.fillRect(game.x+8,game.y+3,2,2);ctx.fillStyle='#0b0b12aa';ctx.fillRect(6,6,150,24);ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.fillText('❤'.repeat(Math.max(0,game.hp))+'  SCORE '+game.score,12,23)}
+let game={x:32,y:200,vx:0,vy:0,hp:3,onGround:false,score:0,speed:120,jump:300};
+let _rt=null,_rtUnbind=null,_rtLast=0,_rtRaf=0;
+function startPlay(){
+  if(playing)return;
+  project.scenes.forEach(s=>{if(window.SNESRuntime)window.SNESRuntime.ensureLayers(s);else if(!s.layers){s.layers={background:blankMap(),ground:s.map||blankMap(),foreground:blankMap()};s.map=s.layers.ground}});
+  if(!window.SNESRuntime){toast('Runtime não carregado');return}
+  playing=true;view='map';
+  _rt=window.SNESRuntime.createRuntimeState(project,project.currentScene);
+  game=_rt.player;
+  _rtUnbind=window.SNESRuntime.bindInput(_rt,window);
+  _rtLast=0;
+  $('status').textContent='TESTANDO: setas/A-D mover · Z/Espaço pular · X/C atacar · E ação · ESC parar';
+  renderAll();
+  function loop(now){
+    if(!playing)return;
+    const dt=Math.min(0.033,_rtLast?(now-_rtLast)/1000:1/60);
+    _rtLast=now;
+    const skDraw=window.SkeletonSprite?window.SkeletonSprite.draw:null;
+    window.SNESRuntime.tick(_rt,THEMES,ENEMY_VARIANTS,dt,now);
+    window.SNESRuntime.drawFrame(ctx,_rt,THEMES,ENEMY_VARIANTS,skDraw);
+    game=_rt.player;
+    if(_rt.gameOver){setTimeout(()=>{stopPlay();toast('Game Over')},600)}
+    _rtRaf=requestAnimationFrame(loop);
+  }
+  _rtRaf=requestAnimationFrame(loop);
+}
+function stopPlay(){
+  playing=false;
+  if(_rtUnbind){_rtUnbind();_rtUnbind=null}
+  if(_rtRaf)cancelAnimationFrame(_rtRaf);
+  _rt=null;
+  renderAll();
+}
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&playing){e.preventDefault();stopPlay()}});
+
 function snesAsm(){
  const safe=(project.name||'MEU JOGO').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').slice(0,21);
  const map=scene().map.map(r=>r.join(',')).join('\\n');
@@ -307,27 +362,54 @@ function exportSnesBundle(){
 }
 
 function buildExport(){
+ // Migrar camadas antes de exportar
+ project.scenes.forEach(s=>{if(window.SNESRuntime)window.SNESRuntime.ensureLayers(s)});
  const data=JSON.stringify(project);
  const themesData=JSON.stringify(THEMES);
  const enemiesData=JSON.stringify(ENEMY_VARIANTS);
- return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(project.name)+'</title><style>html,body{margin:0;background:#080912;color:#fff;height:100%;display:grid;place-items:center;font-family:monospace}canvas{width:min(96vw,1024px);height:auto;image-rendering:pixelated;border:2px solid #353a5d}</style></head><body><canvas id="game" width="512" height="288"></canvas><script>'
- +'const PROJECT='+data.replace(/</g,'\\u003c')+';'
- +'const THEMES='+themesData.replace(/</g,'\\u003c')+';'
- +'const ENEMY_VARIANTS='+enemiesData.replace(/</g,'\\u003c')+';'
- +'const T=16,COLS=32,ROWS=18,W=512,H=288;'
- +'const c=document.getElementById("game"),x=c.getContext("2d");x.imageSmoothingEnabled=false;'
- +'let s=PROJECT.scenes.find(q=>q.id===PROJECT.currentScene)||PROJECT.scenes[0];'
- +'let theme=THEMES[s.themeId]||THEMES.floresta;'
- +'let p=s.entities.find(q=>q.type==="player")||{x:32,y:200,hp:3,speed:120,jump:300};'
- +'let g={x:p.x,y:p.y,vx:0,vy:0,on:false,hp:p.hp||3,score:0};let k={};onkeydown=e=>k[e.key.toLowerCase()]=1;onkeyup=e=>k[e.key.toLowerCase()]=0;'
- +'function drawTileAt(ctx2,tile,px,py,size){const sc=size/16;ctx2.fillStyle=tile.color;ctx2.fillRect(px,py,size,size);(tile.decos||[]).forEach(d=>{if(d.outline){ctx2.strokeStyle=d.outline;ctx2.lineWidth=Math.max(1,sc);ctx2.strokeRect(px+d.x*sc+sc/2,py+d.y*sc+sc/2,Math.max(0,d.w*sc-sc),Math.max(0,d.h*sc-sc))}else{ctx2.fillStyle=d.color;ctx2.fillRect(px+d.x*sc,py+d.y*sc,d.w*sc,d.h*sc)}})}'
- +'function px(c,a,b,w,h,z){c.fillStyle=z;c.fillRect(Math.round(a),Math.round(b),w,h)}'
- +'function drawEntityAt(c,e){if(e.type==="enemy"){const list=ENEMY_VARIANTS[s.themeId]||ENEMY_VARIANTS.floresta,v=list.find(q=>q.id===e.sub)||list[0],a=e.x,b=e.y,z=v.color,d=v.accent;if(v.style==="slime"){px(c,a+2,b+5,10,7,z);px(c,a+4,b+3,6,3,z)}else if(v.style==="flying"){px(c,a+4,b+4,6,7,z);px(c,a,b+2,5,3,z);px(c,a+9,b+2,5,3,z)}else if(v.style==="crawler"){px(c,a+3,b+5,8,6,z);px(c,a,b+4,4,2,d);px(c,a+10,b+4,4,2,d)}else if(v.style==="humanoid"){px(c,a+3,b,8,5,z);px(c,a+2,b+5,10,6,z);px(c,a+3,b+11,3,3,d);px(c,a+8,b+11,3,3,d)}else{px(c,a+2,b+4,10,7,z);px(c,a+9,b+1,4,5,z);px(c,a,b+9,4,3,d)}px(c,a+5,b+5,2,2,"#fff");px(c,a+9,b+5,2,2,"#18131e")}else if(e.type==="item"){px(c,e.x+2,e.y+4,9,6,"#ffe17a");px(c,e.x+5,e.y+3,3,8,"#c88418")}else if(e.type==="npc"){px(c,e.x+3,e.y,7,5,"#ffd88a");px(c,e.x+2,e.y+5,9,8,"#4aa0e0")}else if(e.type==="object"){const o=(theme.objects||[]).find(q=>q.id===e.sub)||theme.objects[0];if(o){px(c,e.x+2,e.y+2,11,12,o.color);px(c,e.x+4,e.y+4,3,2,"#ffffff55")}}}'
- +'function so(px,py){const gx=Math.floor(px/T),gy=Math.floor(py/T);if(gx<0||gx>=32||gy<0||gy>=18)return true;const t=theme.tiles[s.map[gy][gx]]||theme.tiles[0];return !!t.solid}'
- +'function loop(){g.vx=((k.arrowleft||k.a)?-p.speed:0)+((k.arrowright||k.d)?p.speed:0);if((k.z||k[" "])&&g.on){g.vy=-p.jump;g.on=false}g.vy+=650/60;let nx=g.x+g.vx/60,ny=g.y+g.vy/60;if(!so(nx,g.y+10)&&!so(nx+12,g.y+10))g.x=Math.max(0,Math.min(500,nx));if(g.vy>=0&&(so(g.x+2,ny+14)||so(g.x+11,ny+14))){g.y=Math.floor((ny+14)/T)*T-14;g.vy=0;g.on=true}else if(g.vy<0&&!so(g.x+2,ny)&&!so(g.x+11,ny))g.y=ny;else if(g.vy<0)g.vy=0;'
- +'x.clearRect(0,0,512,288);for(let y=0;y<18;y++)for(let a=0;a<32;a++)drawTileAt(x,theme.tiles[s.map[y][a]]||theme.tiles[0],a*T,y*T,T);for(const e of s.entities){if(e.type!=="player")drawEntityAt(x,e)}'
- +'x.fillStyle="#55d6a0";x.fillRect(g.x,g.y,12,14);requestAnimationFrame(loop)}loop();'
- +'<\/script></body></html>';
+ let runtimeSrc='';
+ try{const xhr=null}catch(_){}
+ // Runtime é injetado de window.__SNES_RUNTIME_SRC se disponível, senão versão mínima embutida
+ const rtSrc=(window.__SNES_RUNTIME_SRC)||'';
+ const skClips=window.SkeletonSprite?JSON.stringify(window.SkeletonSprite.clips):'{}';
+ const skData=window.SKELETON_SHEET_DATA||'';
+ return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><title>'+esc(project.name)+'</title><style>'
+ +'html,body{margin:0;background:#080912;color:#fff;height:100%;display:grid;place-items:center;font-family:monospace;overflow:hidden;touch-action:none}'
+ +'canvas{width:min(96vw,1024px);height:auto;image-rendering:pixelated;border:2px solid #353a5d;max-height:80vh}'
+ +'#pad{position:fixed;left:0;right:0;bottom:0;height:140px;pointer-events:none;display:none}'
+ +'#pad .btn{pointer-events:auto;position:absolute;width:56px;height:56px;border-radius:50%;background:#ffffff33;border:2px solid #fff6;color:#fff;font-size:18px;display:grid;place-items:center;user-select:none;-webkit-user-select:none}'
+ +'#pad .left{left:24px;bottom:40px}#pad .right{left:90px;bottom:40px}#pad .jump{right:90px;bottom:40px}#pad .attack{right:24px;bottom:40px}#pad .action{right:56px;bottom:100px}'
+ +'@media (pointer:coarse){#pad{display:block}}'
+ +'</style></head><body><canvas id="game" width="512" height="288"></canvas><div id="pad">'
+ +'<div class="btn left" data-k="left">◀</div><div class="btn right" data-k="right">▶</div>'
+ +'<div class="btn jump" data-k="jump">A</div><div class="btn attack" data-k="attack">B</div><div class="btn action" data-k="action">X</div></div><script>'
+ +'(function(){\n'
+ +'const PROJECT='+data.replace(/</g,'\\u003c')+';\n'
+ +'const THEMES='+themesData.replace(/</g,'\\u003c')+';\n'
+ +'const ENEMY_VARIANTS='+enemiesData.replace(/</g,'\\u003c')+';\n'
+ +'const SK_CLIPS='+skClips+';\n'
+ +'const SK_DATA='+JSON.stringify(skData)+';\n'
+ +rtSrc.replace(/<\/script/gi,'<\\\\/script')+'\n'
+ // Skeleton draw
+ +'const skImg=new Image();if(SK_DATA)skImg.src=SK_DATA;\n'
+ +'const rates={idle:5,walk:9,run:12,attack:13,hurt:9,death:8};\n'
+ +'function skState(e){if(e.dead)return"death";if(e.hurtUntil>Date.now())return"hurt";if(e.attackUntil>Date.now())return"attack";if(Math.abs(e.vx||0)>55)return"run";if(Math.abs(e.vx||0)>2)return"walk";return"idle"}\n'
+ +'function skDraw(c,e){if(!skImg.complete||!skImg.naturalWidth){c.fillStyle="#b8a477";c.fillRect(e.x,e.y-30,22,46);return}const st=skState(e),arr=SK_CLIPS[st]||SK_CLIPS.idle;if(!arr)return;const elapsed=e.animStarted?performance.now()-e.animStarted:performance.now();const i=st==="death"?Math.min(arr.length-1,Math.floor(elapsed/120)):Math.floor(elapsed/(1000/(rates[st]||8)))%arr.length;const f=arr[i];c.save();c.imageSmoothingEnabled=false;const flip=e.facing==="left",dw=52,dh=64,dx=e.x-17,dy=e.y-48;if(flip){c.translate(dx+dw,0);c.scale(-1,1);c.drawImage(skImg,f[0],f[1],f[2],f[3],0,dy,dw,dh)}else c.drawImage(skImg,f[0],f[1],f[2],f[3],dx,dy,dw,dh);c.restore()}\n'
+ +'const c=document.getElementById("game"),x=c.getContext("2d");x.imageSmoothingEnabled=false;\n'
+ +'const rt=SNESRuntime.createRuntimeState(PROJECT,PROJECT.currentScene);\n'
+ +'SNESRuntime.bindInput(rt,window);\n'
+ // Touch
+ +'const pad=document.getElementById("pad");\n'
+ +'function setTouch(k,v){if(k==="left")rt.touch.left=v;if(k==="right")rt.touch.right=v;if(k==="jump")rt.touch.jump=v;if(k==="attack")rt.touch.attack=v;if(k==="action")rt.touch.action=v}\n'
+ +'pad.querySelectorAll(".btn").forEach(b=>{const k=b.dataset.k;const on=e=>{e.preventDefault();setTouch(k,true)};const off=e=>{e.preventDefault();setTouch(k,false)};b.addEventListener("touchstart",on,{passive:false});b.addEventListener("touchend",off,{passive:false});b.addEventListener("touchcancel",off,{passive:false});b.addEventListener("mousedown",on);b.addEventListener("mouseup",off);b.addEventListener("mouseleave",off)});\n'
+ // Save
+ +'const SAVE_KEY="snes_player_save_v06";\n'
+ +'try{const raw=localStorage.getItem(SAVE_KEY);if(raw){const sv=JSON.parse(raw);if(sv&&sv.sceneId){rt.player.score=sv.score||0;rt.player.keys=sv.keys||0;if(sv.checkpoint)rt.player.checkpoint=sv.checkpoint}}}\n'
+ +'catch(_){}\n'
+ +'function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({sceneId:rt.sceneId,score:rt.player.score,keys:rt.player.keys||0,checkpoint:rt.player.checkpoint,hp:rt.player.hp}))}catch(_){}}\n'
+ +'setInterval(persist,5000);\n'
+ +'let last=0;function loop(now){const dt=Math.min(0.033,last?(now-last)/1000:1/60);last=now;SNESRuntime.tick(rt,THEMES,ENEMY_VARIANTS,dt,now);SNESRuntime.drawFrame(x,rt,THEMES,ENEMY_VARIANTS,skDraw);requestAnimationFrame(loop)}requestAnimationFrame(loop);\n'
+ +'})();<\/script></body></html>';
 }
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-window.SNESStudio={get project(){return project},set project(v){project=v},scene,curTheme,blankMap,pushHistory,renderAll,renderRight,drawGrid,toast,setStatus,downloadFile,buildExport,THEMES,ENEMY_VARIANTS,get selectedTile(){return selectedTile},set selectedTile(v){selectedTile=v},get selectedEntity(){return selectedEntity},set selectedEntity(v){selectedEntity=v},get view(){return view},set view(v){view=v},get playing(){return playing},get game(){return game},startPlay,stopPlay};renderAll();window.dispatchEvent(new CustomEvent("snesstudio:ready"));})();
+window.SNESStudio={get project(){return project},set project(v){project=migrateProject(v)},scene,curTheme,blankMap,pushHistory,renderAll,renderRight,drawGrid,drawEntityAt,toast,setStatus,downloadFile,buildExport,migrateProject,THEMES,ENEMY_VARIANTS,get selectedTile(){return selectedTile},set selectedTile(v){selectedTile=v},get selectedEntity(){return selectedEntity},set selectedEntity(v){selectedEntity=v},get view(){return view},set view(v){view=v},get playing(){return playing},get game(){return game},startPlay,stopPlay,_drawEntityAt:drawEntityAt};renderAll();window.dispatchEvent(new CustomEvent("snesstudio:ready"));})();

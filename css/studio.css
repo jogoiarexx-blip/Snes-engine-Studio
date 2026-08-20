@@ -6,7 +6,7 @@
 .v4tools{display:flex;gap:4px;align-items:center}.v4tools select{background:#0a0c16;color:#fff;border:1px solid var(--line);padding:7px}.v4tools button.active{border-color:var(--accent);color:var(--accent)}.v5add{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:7px}.v6grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.worldmap{margin-top:14px;padding:12px;background:#0b0d18;border:1px solid var(--line);display:flex;align-items:center;gap:7px;overflow:auto}.worldnode{min-width:110px;display:flex;flex-direction:column;gap:4px}.worldnode.active{border-color:var(--accent);box-shadow:0 0 12px #f7b32b55}.path{color:var(--accent)}
 @media(max-width:1200px){.v4tools button:nth-of-type(2),.v4tools button:nth-of-type(3),.v4tools button:nth-of-type(4){display:none}.toolbar{overflow-x:auto}.v6grid{grid-template-columns:1fr 1fr}}
 
-/* V6.2 — interface redesenhada */
+/* 0.6 — interface */
 :root{--bg:#070912;--panel:#101421;--panel2:#191f31;--line:#2b3450;--accent:#ffc247;--accent2:#6ad7ff;--text:#f5f7ff;--muted:#929bb5;--danger:#ff6876;--ok:#60d394;--shadow:0 18px 50px #0007}
 body.studio-modern{background:linear-gradient(145deg,#080a13,#0a1020);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.01em}
 .studio-modern button,.studio-modern input,.studio-modern select{border-radius:8px;transition:border-color .16s,background .16s,transform .12s,box-shadow .16s}.studio-modern button:active{transform:translateY(1px)}
@@ -18,3 +18,12 @@ body.studio-modern{background:linear-gradient(145deg,#080a13,#0a1020);font-famil
 @media(max-width:1050px){.studio-modern .main{grid-template-columns:76px minmax(340px,1fr)}.studio-modern .left{padding:10px 7px}.studio-modern .nav{justify-content:center}.studio-modern .navLabel,.studio-modern .left>.section,.studio-modern #sceneList,.studio-modern .left>.card{display:none}.studio-modern .right{display:block;position:fixed;right:0;top:64px;bottom:0;width:min(330px,88vw);transform:translateX(105%);transition:transform .22s;z-index:10}.studio-modern .rightOpen .right{transform:translateX(0)}.studio-modern .project{display:none}.studio-modern #inspectToggle{display:grid}.leftCollapsed .main{grid-template-columns:0 minmax(340px,1fr)}.leftCollapsed .left{display:none}}
 @media(min-width:1051px){#inspectToggle{display:none}}
 @media(max-width:650px){.studio-modern .top{height:58px;padding:7px}.studio-modern .logo b{font-size:11px}.studio-modern .logo small{display:none}.studio-modern .top>button:not(.iconBtn){font-size:0;width:38px;padding:0}.studio-modern .top>button:not(.iconBtn)::first-letter{font-size:16px}.studio-modern .main{grid-template-columns:0 1fr}.studio-modern .left{display:none}.studio-modern .toolbar{height:52px}.studio-modern .canvas-wrap{padding:14px}.studio-modern .bottom>span:last-child{display:none}.helpSteps{grid-template-columns:1fr}.shortcutGrid{grid-template-columns:auto 1fr}.studio-modern .v4tools button{font-size:0;min-width:34px}.studio-modern .v4tools button::first-letter{font-size:13px}}
+
+/* 0.6 layer tools */
+.v4tools{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.v4tools select,.v4tools button{font-size:11px}
+.v4tools button.active{outline:2px solid var(--accent);background:#ffc24722}
+.layerVis{width:28px;padding:4px;opacity:.45}
+.layerVis.active{opacity:1;background:#ffffff12}
+.v5add{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.v5add button{font-size:11px}
