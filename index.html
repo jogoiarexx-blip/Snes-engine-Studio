@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SNES Engine Studio — V6.2 UX Edition</title>
+<link rel="stylesheet" href="css/studio.css">
+</head>
+<body>
+<div class="app">
+<header class="top"><div class="logo">◆ SNES ENGINE STUDIO</div><div class="project">PROJETO <input id="projectName" value="Meu Jogo"><span id="dirty">●</span></div><button id="newBtn">Novo</button><button id="saveBtn">💾 Salvar</button><button id="loadBtn">📂 Abrir</button><button id="exportBtn">🌐 HTML</button><button id="exportSnesBtn">🎮 SNES</button></header>
+<div class="main">
+<aside class="left">
+<div class="section">EDITOR</div>
+<button class="nav active" data-view="map">🗺 Mapas</button><button class="nav" data-view="entities">👾 Entidades</button><button class="nav" data-view="tilesets">🎨 Tilesets</button><button class="nav" data-view="scenes">🎬 Cenas</button><button class="nav" data-view="project">⚙ Projeto</button>
+<div class="section">CENAS</div><div id="sceneList"></div>
+<div class="section">CONTROLES</div><div class="card"><div class="badge">Mapa: clique para pintar. Botão direito apaga.</div><div class="badge">Cada cena tem seu próprio tema visual (aba Tilesets).</div><div class="badge">Play: setas/A-D, Z pula/ação.</div><div class="badge">Salvar: localStorage do navegador.</div></div>
+</aside>
+<main class="workspace">
+<div class="toolbar" id="toolbar"><button id="playBtn">▶ TESTAR</button><button id="stopBtn" class="hidden">■ PARAR</button><button id="undoBtn">↶</button><button id="redoBtn">↷</button><button id="clearBtn">Limpar mapa</button><span class="spacer"></span><span id="toolInfo" class="badge">Mapa 32×18 · 16px</span></div>
+<div class="canvas-wrap"><canvas id="editor" width="512" height="288"></canvas></div>
+<div class="bottom"><span id="status">Pronto.</span><span class="spacer"></span><span>SNES Engine Studio · V6.2 UX Edition · editor + gameplay + exportação</span></div>
+</main>
+<aside class="right" id="rightPanel"></aside>
+</div></div>
+<div id="modal" class="modal hidden"><div><div id="modalBody"></div><div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px"><button id="modalClose">Fechar</button></div></div></div>
+<script src="js/core.js"></script>
+<script src="js/skeleton-data.js"></script>
+<script src="js/skeleton-sprite.js"></script>
+<script src="js/editor-v4.js"></script>
+<script src="js/gameplay-v5.js"></script>
+<script src="js/creation-v6.js"></script>
+<script src="js/ui-enhancements.js"></script>
+</body></html>
