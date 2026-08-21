@@ -1,0 +1,167 @@
+{
+  "image": "assets/ninja-kart-sheet.png",
+  "width": 1500,
+  "height": 1000,
+  "frames": {
+    "portrait": {
+      "x": 9,
+      "y": 8,
+      "w": 191,
+      "h": 172,
+      "anchorX": 95,
+      "anchorY": 172
+    },
+    "hero": {
+      "x": 7,
+      "y": 530,
+      "w": 393,
+      "h": 390,
+      "anchorX": 196,
+      "anchorY": 390
+    },
+    "kart_0": {
+      "x": 21,
+      "y": 290,
+      "w": 146,
+      "h": 120,
+      "anchorX": 73.0,
+      "anchorY": 120
+    },
+    "kart_1": {
+      "x": 200,
+      "y": 290,
+      "w": 158,
+      "h": 120,
+      "anchorX": 79.0,
+      "anchorY": 120
+    },
+    "kart_2": {
+      "x": 394,
+      "y": 290,
+      "w": 163,
+      "h": 120,
+      "anchorX": 81.5,
+      "anchorY": 120
+    },
+    "kart_3": {
+      "x": 561,
+      "y": 290,
+      "w": 174,
+      "h": 120,
+      "anchorX": 87.0,
+      "anchorY": 120
+    },
+    "kart_4": {
+      "x": 752,
+      "y": 290,
+      "w": 130,
+      "h": 120,
+      "anchorX": 65.0,
+      "anchorY": 120
+    },
+    "kart_5": {
+      "x": 883,
+      "y": 290,
+      "w": 153,
+      "h": 120,
+      "anchorX": 76.5,
+      "anchorY": 120
+    },
+    "kart_6": {
+      "x": 1070,
+      "y": 290,
+      "w": 180,
+      "h": 120,
+      "anchorX": 90.0,
+      "anchorY": 120
+    },
+    "kart_7": {
+      "x": 20,
+      "y": 410,
+      "w": 134,
+      "h": 120,
+      "anchorX": 67.0,
+      "anchorY": 120
+    },
+    "kart_8": {
+      "x": 181,
+      "y": 410,
+      "w": 159,
+      "h": 120,
+      "anchorX": 79.5,
+      "anchorY": 120
+    },
+    "kart_9": {
+      "x": 373,
+      "y": 410,
+      "w": 141,
+      "h": 120,
+      "anchorX": 70.5,
+      "anchorY": 120
+    },
+    "kart_10": {
+      "x": 540,
+      "y": 410,
+      "w": 181,
+      "h": 120,
+      "anchorX": 90.5,
+      "anchorY": 120
+    },
+    "kart_11": {
+      "x": 750,
+      "y": 410,
+      "w": 108,
+      "h": 120,
+      "anchorX": 54.0,
+      "anchorY": 120
+    },
+    "kart_12": {
+      "x": 898,
+      "y": 410,
+      "w": 161,
+      "h": 120,
+      "anchorX": 80.5,
+      "anchorY": 120
+    },
+    "kart_13": {
+      "x": 1086,
+      "y": 410,
+      "w": 164,
+      "h": 120,
+      "anchorX": 82.0,
+      "anchorY": 120
+    }
+  },
+  "animations": {
+    "kart/idle": {
+      "frames": [
+        "kart_1"
+      ],
+      "fps": 1,
+      "loop": true
+    },
+    "kart/lean_l": {
+      "frames": [
+        "kart_0"
+      ],
+      "fps": 1,
+      "loop": true
+    },
+    "kart/lean_r": {
+      "frames": [
+        "kart_2"
+      ],
+      "fps": 1,
+      "loop": true
+    },
+    "kart/boost": {
+      "frames": [
+        "kart_7",
+        "kart_10",
+        "kart_12"
+      ],
+      "fps": 10,
+      "loop": true
+    }
+  }
+}

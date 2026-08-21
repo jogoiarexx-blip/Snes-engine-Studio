@@ -3,27 +3,86 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SNES Engine Studio — 0.6 Engine Unificada</title>
+<title>SNES Engine Studio — 0.9 Multi-Genre</title>
 <link rel="stylesheet" href="css/studio.css">
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="logo">◆ SNES ENGINE STUDIO</div><div class="project">PROJETO <input id="projectName" value="Meu Jogo"><span id="dirty">●</span></div><button id="newBtn">Novo</button><button id="saveBtn">💾 Salvar</button><button id="loadBtn">📂 Abrir</button><button id="exportBtn">🌐 HTML</button><button id="exportSnesBtn">🎮 SNES</button></header>
+<header class="top">
+  <div class="logo">◆ SNES ENGINE STUDIO</div>
+  <div class="project">PROJETO <input id="projectName" value="Meu Jogo"><span id="dirty">●</span></div>
+  <span id="gameTypeBadge" class="gameTypeBadge" title="Tipo de jogo">🏃 Plataforma</span>
+  <button id="newBtn">Novo</button>
+  <button id="saveBtn">💾 Salvar</button>
+  <button id="loadBtn">📂 Abrir</button>
+  <button id="exportBtn">🌐 HTML</button>
+  <button id="exportSnesBtn">🎮 SNES</button>
+</header>
 <div class="main">
 <aside class="left">
 <div class="section">EDITOR</div>
-<button class="nav active" data-view="map">🗺 Mapas</button><button class="nav" data-view="entities">👾 Entidades</button><button class="nav" data-view="tilesets">🎨 Tilesets</button><button class="nav" data-view="scenes">🎬 Cenas</button><button class="nav" data-view="project">⚙ Projeto</button>
+<button class="nav active" data-view="map">🗺 Mapas</button>
+<button class="nav" data-view="entities">👾 Entidades</button>
+<button class="nav" data-view="tilesets">🎨 Tilesets</button>
+<button class="nav" data-view="scenes">🎬 Cenas</button>
+<button class="nav" data-view="project">⚙ Projeto</button>
 <div class="section">CENAS</div><div id="sceneList"></div>
-<div class="section">CONTROLES</div><div class="card"><div class="badge">Mapa: clique para pintar. Botão direito apaga.</div><div class="badge">Camadas: Fundo · Terreno · Frente (colisão só no Terreno).</div><div class="badge">Play: setas/A-D, Z pula, X/C ataca, E ação.</div><div class="badge">Salvar: localStorage do navegador.</div></div>
+<div class="section">CONTROLES</div>
+<div class="card" id="controlsHelp">
+  <div class="badge">Mapa: clique pinta · direito apaga</div>
+  <div class="badge">Camadas reais · Auto-tile · Undo/Redo</div>
+  <div class="badge" id="helpControls">Play: depende do estilo do projeto</div>
+</div>
 </aside>
 <main class="workspace">
-<div class="toolbar" id="toolbar"><button id="playBtn">▶ TESTAR</button><button id="stopBtn" class="hidden">■ PARAR</button><button id="undoBtn">↶</button><button id="redoBtn">↷</button><button id="clearBtn">Limpar mapa</button><span class="spacer"></span><span id="toolInfo" class="badge">Mapa 32×18 · 16px</span></div>
+<div class="toolbar" id="toolbar">
+  <button id="playBtn">▶ TESTAR</button>
+  <button id="stopBtn" class="hidden">■ PARAR</button>
+  <button id="undoBtn">↶</button>
+  <button id="redoBtn">↷</button>
+  <button id="clearBtn">Limpar mapa</button>
+  <span class="spacer"></span>
+  <span id="toolInfo" class="badge">Mapa 32×18 · 16px</span>
+  <span id="fpsMeter" class="badge">—</span>
+</div>
 <div class="canvas-wrap"><canvas id="editor" width="512" height="288"></canvas></div>
-<div class="bottom"><span id="status">Pronto.</span><span class="spacer"></span><span>SNES Engine Studio · 0.6 Engine Unificada · runtime compartilhado</span></div>
+<div class="bottom">
+  <span id="status">Pronto.</span>
+  <span class="spacer"></span>
+  <span>SNES Engine Studio · 0.9 Multi-Genre · platform · topdown · shooter</span>
+</div>
 </main>
 <aside class="right" id="rightPanel"></aside>
 </div></div>
 <div id="modal" class="modal hidden"><div><div id="modalBody"></div><div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px"><button id="modalClose">Fechar</button></div></div></div>
+
+<!-- Engine core -->
+<script src="js/engine/asset-manager.js"></script>
+<script src="js/engine/audio-manager.js"></script>
+<script src="js/engine/texture-atlas.js"></script>
+<script src="js/engine/collision.js"></script>
+<script src="js/engine/animation.js"></script>
+<script src="js/engine/camera.js"></script>
+<script src="js/engine/input-manager.js"></script>
+<script src="js/engine/save-manager.js"></script>
+<script src="js/engine/entity-registry.js"></script>
+<script src="js/runtimes/platform/platform-runtime.js"></script>
+<script src="js/runtimes/topdown/topdown-runtime.js"></script>
+<script src="js/runtimes/shooter/shooter-runtime.js"></script>
+<script src="js/genres/kart-racing/track-data.js"></script>
+<script src="js/genres/kart-racing/items.js"></script>
+<script src="js/genres/kart-racing/ninja-kart-sprites.js"></script>
+<script src="js/genres/kart-racing/kart-runtime.js"></script>
+<script src="js/engine/combat/combat-core.js"></script>
+<script src="js/engine/upgrades.js"></script>
+<script src="js/engine/inventory.js"></script>
+<script src="js/runtimes/metroidvania/metroidvania-runtime.js"></script>
+<script src="js/runtimes/beat-em-up/beat-em-up-runtime.js"></script>
+<script src="js/storage/project-store.js"></script>
+<script src="js/genres/kart-racing/track-editor.js"></script>
+<script src="js/engine/engine.js"></script>
+<script src="js/export/export-sources.js"></script>
+<!-- Legacy runtime still available for compatibility -->
 <script src="js/runtime/runtime.js"></script>
 <script src="js/runtime/runtime-src.js"></script>
 <script src="js/skeleton-data.js"></script>
@@ -32,6 +91,19 @@
 <script src="js/gameplay-v5.js"></script>
 <script src="js/skeleton-sprite.js"></script>
 <script src="js/creation-v6.js"></script>
+<script src="js/editor/validator.js"></script>
+<script src="js/editor/project-wizard.js"></script>
+<script src="js/export/html-exporter.js"></script>
 <script src="js/ui-enhancements.js"></script>
+<script src="js/editor/command-palette.js"></script>
+<script src="js/editor/home-screen.js"></script>
+<script src="js/editor/save-hooks.js"></script>
+<script src="js/editor/adaptive-ui.js"></script>
+<script src="js/editor/asset-preload.js"></script>
+<script src="js/editor/audio-hooks.js"></script>
+<script src="js/editor/controls-panel.js"></script>
+<script src="js/editor/save-slots-ui.js"></script>
+<script src="js/editor/upgrades-panel.js"></script>
+<script src="js/editor/inventory-panel.js"></script>
 </body>
 </html>

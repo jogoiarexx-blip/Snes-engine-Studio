@@ -1,7 +1,7 @@
 (function(){'use strict';
 function init(){const A=window.SNESStudio,$=id=>document.getElementById(id),app=document.querySelector('.app'),top=document.querySelector('.top'),canvas=$('editor');
 document.body.classList.add('studio-modern');
-const brand=document.querySelector('.logo');brand.innerHTML='<span class="brandMark">◆</span><span><b>SNES ENGINE</b><small>STUDIO 0.6</small></span>';
+const brand=document.querySelector('.logo');brand.innerHTML='<span class="brandMark">◆</span><span><b>SNES ENGINE</b><small>STUDIO 0.9</small></span>';
 const menu=document.createElement('button');menu.id='leftToggle';menu.className='iconBtn';menu.title='Recolher menu (Tab)';menu.textContent='☰';top.insertBefore(menu,brand);
 const help=document.createElement('button');help.id='helpBtn';help.className='iconBtn';help.title='Ajuda e atalhos (?)';help.textContent='?';top.appendChild(help);
 const inspect=document.createElement('button');inspect.id='inspectToggle';inspect.className='iconBtn';inspect.title='Abrir propriedades';inspect.textContent='☷';document.querySelector('.toolbar').appendChild(inspect);

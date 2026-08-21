@@ -27,3 +27,36 @@ body.studio-modern{background:linear-gradient(145deg,#080a13,#0a1020);font-famil
 .layerVis.active{opacity:1;background:#ffffff12}
 .v5add{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
 .v5add button{font-size:11px}
+
+/* V7 multi-game */
+.gameTypeBadge{font-size:11px;padding:4px 10px;border-radius:999px;background:#ffc24722;border:1px solid var(--accent);color:var(--accent);cursor:pointer;white-space:nowrap}
+.wizard h2{margin:0 0 8px}
+.wizardGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:14px}
+.wizardCard{text-align:left;padding:14px;border-radius:12px;background:#ffffff08;border:1px solid var(--line);cursor:pointer;color:inherit}
+.wizardCard:hover{border-color:var(--accent);background:#ffc24712}
+.wizardEmoji{font-size:28px;margin-bottom:6px}
+.wizardCard strong{display:block;margin-bottom:6px}
+.wizardCard p{font-size:11px;color:var(--muted);margin:0 0 8px;line-height:1.35}
+.wizardCard ul{margin:0;padding-left:16px;font-size:10px;color:var(--muted)}
+.wizardCard li{margin:2px 0}
+
+/* V7 command palette + home + pad */
+.cmdPalette{position:fixed;inset:0;background:#000a;z-index:50;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh}
+.cmdPalette.hidden{display:none!important}
+.cmdBox{width:min(520px,92vw);background:#151b2b;border:1px solid #3b4665;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px #0008}
+.cmdBox input{width:100%;box-sizing:border-box;padding:14px 16px;border:0;border-bottom:1px solid #3b4665;background:#0d111c;color:#fff;font:14px monospace;outline:none}
+.cmdItem{padding:10px 16px;cursor:pointer;font-size:13px}
+.cmdItem:hover,.cmdItem.active{background:#ffc24722;color:var(--accent)}
+.homeScreen .homeActions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.recentList{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.recentItem{text-align:left;padding:10px;border-radius:8px;background:#ffffff08;border:1px solid var(--line);color:inherit}
+.recentItem span{display:block;font-size:10px;color:var(--muted);margin-top:3px}
+.editorPad{position:fixed;left:0;right:0;bottom:0;height:140px;pointer-events:none;z-index:40;display:none}
+.editorPad .pad-btn{pointer-events:auto;position:absolute;width:50px;height:50px;border-radius:50%;background:#ffffff33;border:2px solid #fff6;color:#fff;font-size:14px;display:grid;place-items:center;user-select:none}
+.editorPad .pad-left{left:16px;bottom:36px}.editorPad .pad-right{left:76px;bottom:36px}
+.editorPad .pad-up{left:46px;bottom:86px}.editorPad .pad-down{left:46px;bottom:6px}
+.editorPad .pad-jump,.editorPad .pad-attack{right:16px;bottom:36px}
+.editorPad .pad-action{right:76px;bottom:36px}
+.editorPad .pad-bomb{right:16px;bottom:96px}
+.editorPad .pad-inventory{right:76px;bottom:96px}
+@media(pointer:fine){.editorPad{opacity:.55}}

@@ -1,11 +1,11 @@
 /**
- * SNES Engine Studio 0.6 — Caveira Espadachim
+ * SNES Engine Studio 0.7 — Caveira Espadachim (compatível com SNESAnim)
  * Spritesheet + estados: idle, walk, run, attack, hurt, death
  */
 (function () {
   'use strict';
 
-  const img = new Image();
+  const img = (window.SNESAssets && window.SNESAssets.get("skeleton")) || new Image();
   img.onload = () => window.SNESStudio?.drawGrid();
   img.src = window.SKELETON_SHEET_DATA || 'assets/skeleton.png';
 

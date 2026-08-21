@@ -91,6 +91,18 @@
           loot: 'score'
         });
       }
+      if (kind === 'moving_platform') {
+        s.entities.push({
+          ...base, type: 'moving_platform', name: 'Plataforma móvel',
+          x: 160, y: 180, w: 48, h: 8, axis: 'x', min: 120, max: 280, speed: 40
+        });
+      }
+      if (kind === 'ladder') {
+        s.entities.push({
+          ...base, type: 'ladder', name: 'Escada',
+          x: 200, y: 120, w: 16, h: 64
+        });
+      }
       A.renderAll();
       A.toast(
         kind === 'skeleton'
@@ -114,6 +126,8 @@
           '<button id="addChestV5">＋ Baú</button>' +
           '<button id="addEventV5">＋ Evento</button>' +
           '<button id="addHealthV5">＋ Vida</button>' +
+          '<button id="addPlatformV7">＋ Plat. móvel</button>' +
+          '<button id="addLadderV7">＋ Escada</button>' +
           '</div>'
       );
       document.getElementById('addSkeletonV5').onclick = () => add('skeleton');
@@ -123,6 +137,8 @@
       document.getElementById('addChestV5').onclick = () => add('chest');
       document.getElementById('addEventV5').onclick = () => add('event');
       document.getElementById('addHealthV5').onclick = () => add('health');
+      const ap = document.getElementById('addPlatformV7'); if (ap) ap.onclick = () => add('moving_platform');
+      const al = document.getElementById('addLadderV7'); if (al) al.onclick = () => add('ladder');
     });
     ob.observe(document.getElementById('rightPanel'), { childList: true, subtree: true });
   }

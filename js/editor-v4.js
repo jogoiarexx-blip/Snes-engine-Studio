@@ -21,11 +21,15 @@
       '<select id="v4layer" title="Camada ativa">' +
       '<option value="background">Fundo</option>' +
       '<option value="ground" selected>Terreno</option>' +
+      '<option value="decoration">Decoração</option>' +
       '<option value="foreground">Frente</option>' +
+      '<option value="collision">Colisão</option>' +
       '</select>' +
       '<button id="v4visBg" title="Mostrar/ocultar fundo" class="layerVis active">B</button>' +
       '<button id="v4visGr" title="Mostrar/ocultar terreno" class="layerVis active">G</button>' +
+      '<button id="v4visDe" title="Mostrar/ocultar decoração" class="layerVis active">D</button>' +
       '<button id="v4visFg" title="Mostrar/ocultar frente" class="layerVis active">F</button>' +
+      '<button id="v4visCo" title="Mostrar/ocultar colisão" class="layerVis">C</button>' +
       '<button id="v4lock" title="Bloquear camada ativa">🔓</button>' +
       '<button id="v4auto" title="Auto-tile (vizinhos)">Auto-tile</button>' +
       '<button id="v4autoToggle" title="Auto-tile ao pintar" class="">AT</button>' +
@@ -45,18 +49,31 @@
     let selection = null;
     let clip = null;
     let autoOnPaint = false;
-    const locked = { background: false, ground: false, foreground: false };
-    const visible = { background: true, ground: true, foreground: true };
+    const locked = { background: false, ground: false, decoration: false, foreground: false, collision: false };
+    const visible = { background: true, ground: true, decoration: true, foreground: true, collision: false };
 
     function ensure(s) {
-      if (window.SNESRuntime) return window.SNESRuntime.ensureLayers(s);
+      if (window.PlatformRuntime && window.PlatformRuntime.ensureLayers) {
+        const L = window.PlatformRuntime.ensureLayers(s);
+        if (!L.decoration) L.decoration = A.blankMap();
+        if (L.collision === undefined) L.collision = null;
+        return L;
+      }
       if (!s.layers) {
         const map = s.map || A.blankMap();
         s.layers = {
           background: A.blankMap(),
           ground: map.map ? map.map(r => r.slice()) : A.blankMap(),
-          foreground: A.blankMap()
+          decoration: A.blankMap(),
+          foreground: A.blankMap(),
+          collision: null
         };
+      }
+      if (!s.layers.decoration) s.layers.decoration = A.blankMap();
+      if (s.layers.collision === undefined) s.layers.collision = null;
+      // collision layer as optional separate map
+      if (active === 'collision') {
+        if (!s.layers.collision) s.layers.collision = A.blankMap();
       }
       s.map = s.layers.ground;
       return s.layers;
@@ -65,28 +82,46 @@
     function activeMap() {
       const s = A.scene();
       ensure(s);
-      return s.layers[active];
+      if (active === 'collision') {
+        if (!s.layers.collision) s.layers.collision = A.blankMap();
+        return s.layers.collision;
+      }
+      return s.layers[active] || s.layers.ground;
     }
 
     // ---- Auto-tile por 8 vizinhos ----
     // Índices típicos: 0 vazio, 1 superfície/grama, 2 miolo/terra, 3+ especiais (não tocados)
     function isFilled(m, x, y) {
-      if (x < 0 || y < 0 || x >= 32 || y >= 18) return true; // borda conta como sólido para cantos
-      return m[y][x] !== 0;
+      if (x < 0 || y < 0 || x >= 32 || y >= 18) return true;
+      const v = m[y][x];
+      return v !== 0 && v < 3; // só tiles auto-tileáveis
     }
 
+    // Auto-tile por bitmask 4-vizinhos + diagonais → índices 1 (topo) e 2 (miolo)
+    // Com temas de 8 tiles: usa 1=topo/aresta, 2=centro; especiais >=3 intactos
     function autoTileCell(m, x, y) {
       if (x < 0 || y < 0 || x >= 32 || y >= 18) return;
       const cur = m[y][x];
-      // Não alterar vazios nem tiles especiais (>=3)
       if (cur === 0 || cur >= 3) return;
       const N = isFilled(m, x, y - 1);
       const S = isFilled(m, x, y + 1);
       const W = isFilled(m, x - 1, y);
       const E = isFilled(m, x + 1, y);
-      // Superfície se não há vizinho acima
-      if (!N) m[y][x] = 1;
-      else m[y][x] = 2;
+      const NW = isFilled(m, x - 1, y - 1);
+      const NE = isFilled(m, x + 1, y - 1);
+      const SW = isFilled(m, x - 1, y + 1);
+      const SE = isFilled(m, x + 1, y + 1);
+      // Isolado / plataforma
+      if (!N && !S && !W && !E) { m[y][x] = 1; return; }
+      // Topo (sem vizinho acima) — superfície
+      if (!N) { m[y][x] = 1; return; }
+      // Canto interno (faltam diagonais mas tem N/S/E/W)
+      if (N && S && W && E && (!NW || !NE || !SW || !SE)) { m[y][x] = 2; return; }
+      // Centro cheio
+      if (N && S && W && E) { m[y][x] = 2; return; }
+      // Laterais / base
+      if (!S || !W || !E) { m[y][x] = 1; return; }
+      m[y][x] = 2;
     }
 
     function autoTileRegion(m, cells) {
@@ -129,7 +164,9 @@
     }
     document.getElementById('v4visBg').onclick = () => toggleVis('background', 'v4visBg');
     document.getElementById('v4visGr').onclick = () => toggleVis('ground', 'v4visGr');
+    const vd=document.getElementById('v4visDe'); if(vd) vd.onclick = () => toggleVis('decoration', 'v4visDe');
     document.getElementById('v4visFg').onclick = () => toggleVis('foreground', 'v4visFg');
+    const vc=document.getElementById('v4visCo'); if(vc) vc.onclick = () => toggleVis('collision', 'v4visCo');
 
     document.getElementById('v4autoToggle').onclick = e => {
       autoOnPaint = !autoOnPaint;
@@ -316,21 +353,28 @@
       const tiles = theme.tiles;
       ctx.clearRect(0, 0, 512, 288);
 
-      const order = ['background', 'ground', 'foreground'];
+      const order = ['background', 'ground', 'decoration', 'foreground', 'collision'];
       order.forEach(layer => {
         if (!visible[layer]) return;
         const m = s.layers[layer];
-        const alpha = layer === active ? 1 : 0.55;
+        if (!m) return;
+        const alpha = layer === active ? 1 : (layer === 'collision' ? 0.45 : 0.55);
         ctx.globalAlpha = alpha;
         for (let y = 0; y < 18; y++)
           for (let x = 0; x < 32; x++) {
             const id = m[y][x];
+            if (layer === 'collision') {
+              if (id) {
+                ctx.fillStyle = '#e74c3c88';
+                ctx.fillRect(x * 16, y * 16, 16, 16);
+              }
+              continue;
+            }
             if (layer === 'background' || id) {
               if (R) R.drawTileAt(ctx, tiles[id] || tiles[0], x * 16, y * 16, 16);
               else {
-                // fallback
-                const t = tiles[id] || tiles[0];
-                ctx.fillStyle = t.color;
+                const tt = tiles[id] || tiles[0];
+                ctx.fillStyle = tt.color;
                 ctx.fillRect(x * 16, y * 16, 16, 16);
               }
             }
