@@ -154,7 +154,30 @@
     return Promise.resolve(null);
   }
 
+  // Worker-backed load when available
+  function preloadWithWorker(list, onProgress) {
+    if (global.SNESLoadWorker && global.SNESLoadWorker.loadAssets) {
+      return global.SNESLoadWorker.loadAssets(list.map(function (item) {
+        return { id: item.id || item.src, src: item.src || item, type: item.type || 'image' };
+      }), { onProgress: onProgress, concurrency: 4 }).then(function (results) {
+        results.forEach(function (r) {
+          if (r.ok && r.data) {
+            if (typeof cache !== 'undefined') cache[r.id] = r.data;
+            else if (global.SNESAssets && global.SNESAssets._cache) global.SNESAssets._cache[r.id] = r.data;
+          }
+        });
+        return results;
+      });
+    }
+    return null;
+  }
+
   global.SNESAssets = {
+    loadAsync: function(list, onProgress) {
+      const w = preloadWithWorker(list, onProgress);
+      if (w) return w;
+      return Promise.resolve([]);
+    },
     setBase: setBase,
     get: get,
     status: status,

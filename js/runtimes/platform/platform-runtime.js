@@ -441,6 +441,7 @@
     theme._id = scene.themeId;
     const tiles = theme.tiles;
     ctx.clearRect(0, 0, W, H);
+    if (global.SNESRender) global.SNESRender.setupCtx(ctx);
     for (let y = 0; y < ROWS; y++)
       for (let x = 0; x < COLS; x++)
         drawTileAt(ctx, tiles[L.background[y][x]] || tiles[0], x * T, y * T, T);

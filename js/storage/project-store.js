@@ -215,7 +215,32 @@
     catch (e) { return []; }
   }
 
+  function loadProjectAsync(id) {
+    return loadProject(id).then(function (data) {
+      if (!data) return null;
+      // heavy RLE decode on worker when possible
+      if (data.kartTrack && data.kartTrack.road && data.kartTrack.road.t === 'rle' && global.SNESLoadWorker) {
+        return global.SNESLoadWorker.rleDecode(data.kartTrack.road).then(function (u8) {
+          if (u8 && u8.length) data.kartTrack.road = u8;
+          return data;
+        }).catch(function () { return restoreProject(data); });
+      }
+      return data;
+    });
+  }
+
+  function importJSONAsync(text) {
+    if (global.SNESLoadWorker) {
+      return global.SNESLoadWorker.prepareProject(text).then(function (data) {
+        return restoreProject(data);
+      });
+    }
+    return Promise.resolve(restoreProject(JSON.parse(text)));
+  }
+
   global.ProjectStore = {
+    loadProjectAsync: loadProjectAsync,
+    importJSONAsync: importJSONAsync,
     rleEncode: rleEncode,
     rleDecode: rleDecode,
     serializeTrack: serializeTrack,

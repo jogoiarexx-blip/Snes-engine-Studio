@@ -67,3 +67,37 @@ INVENTÁRIO
 - Gemas → pontos de upgrade no painel
 - 4 pedaços de coração = +1 vida máx
 - Persistido em project.inventory
+
+
+EDITOR — ESTILOS E COLOCAÇÃO (0.9)
+- Seletor de tema na barra de ferramentas e no painel Mapa
+- Aba Tilesets: clique no tema para aplicar
+- Para colocar item/inimigo/objeto: escolha no painel e CLIQUE NO MAPA
+- Esc cancela o modo de colocação
+- Itens rápidos: moeda, coração, chave, checkpoint, porta
+- Objetos e inimigos na aba Tilesets são clicáveis
+
+
+RENDER CANVAS 2D (0.9)
+- js/engine/render-cache.js
+- Cache offscreen por camada de tiles
+- Atlas de tiles pré-rasterizado
+- Dirty flags: só re-bake quando a camada muda
+- imageSmoothing desligado · contexto desynchronized
+- F3 no play: mostra FPS
+
+
+WEB WORKERS (carregamento)
+- js/engine/load-worker-host.js
+- Worker via Blob (offline / file://)
+- parseJSON, RLE encode/decode, prepareProject em background
+- loadAssets com concorrência limitada
+- Fallback automático na main thread se Worker falhar
+- Import de JSON de projeto usa worker quando disponível
+
+
+MONITOR WORKER (memória)
+- F4: overlay de memória do worker
+- SNESLoadWorker.getStats() / sampleMemory()
+- Exibe: heap worker, heap main, jobs, pending, bytes in/out
+- performance.memory só em Chromium; outros mostram n/a

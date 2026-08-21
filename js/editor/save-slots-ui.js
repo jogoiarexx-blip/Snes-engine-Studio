@@ -47,16 +47,29 @@
       if (!f) return;
       const r = new FileReader();
       r.onload = () => {
-        try {
-          let data = JSON.parse(r.result);
-          if (Store) data = Store.restoreProject(data);
-          if (A.migrateProject) data = A.migrateProject(data);
-          A.project = data;
-          A.renderAll();
-          A.toast('Importado');
-          m.classList.add('hidden');
-        } catch (err) {
-          A.toast('JSON inválido: ' + err.message);
+        const finish = (data) => {
+          try {
+            if (A.migrateProject) data = A.migrateProject(data);
+            A.project = data;
+            A.renderAll();
+            A.toast('Importado');
+            m.classList.add('hidden');
+          } catch (err) {
+            A.toast('JSON inválido: ' + err.message);
+          }
+        };
+        if (Store && Store.importJSONAsync) {
+          Store.importJSONAsync(r.result).then(finish).catch(function (err) {
+            A.toast('Falha: ' + err.message);
+          });
+        } else {
+          try {
+            let data = JSON.parse(r.result);
+            if (Store) data = Store.restoreProject(data);
+            finish(data);
+          } catch (err) {
+            A.toast('JSON inválido: ' + err.message);
+          }
         }
       };
       r.readAsText(f);

@@ -211,11 +211,27 @@
 
     function pos(e) {
       const r = canvas.getBoundingClientRect();
+      const scaleX = 512 / Math.max(1, r.width);
+      const scaleY = 288 / Math.max(1, r.height);
       return {
-        x: Math.max(0, Math.min(31, Math.floor((e.clientX - r.left) * 512 / r.width / 16))),
-        y: Math.max(0, Math.min(17, Math.floor((e.clientY - r.top) * 288 / r.height / 16)))
+        x: Math.max(0, Math.min(31, Math.floor((e.clientX - r.left) * scaleX / 16))),
+        y: Math.max(0, Math.min(17, Math.floor((e.clientY - r.top) * scaleY / 16)))
       };
     }
+
+    function canvasToWorld(e) {
+      const r = canvas.getBoundingClientRect();
+      const scaleX = 512 / Math.max(1, r.width);
+      const scaleY = 288 / Math.max(1, r.height);
+      return {
+        x: Math.max(0, Math.min(511, Math.round((e.clientX - r.left) * scaleX))),
+        y: Math.max(0, Math.min(287, Math.round((e.clientY - r.top) * scaleY))),
+        tx: Math.max(0, Math.min(31, Math.floor((e.clientX - r.left) * scaleX / 16))),
+        ty: Math.max(0, Math.min(17, Math.floor((e.clientY - r.top) * scaleY / 16)))
+      };
+    }
+    A.canvasToWorld = canvasToWorld;
+    A.tilePos = pos;
 
     function floodFill(m, sx, sy, to) {
       const from = m[sy][sx];
@@ -236,6 +252,10 @@
     // Interceptar pintura na camada ativa
     canvas.addEventListener('mousedown', e => {
       if (A.playing || A.view !== 'map') return;
+      // Modo colocar entidade: não pintar tile
+      if (A.placeMode) return;
+      // Arrastar entidade selecionada
+      if (A._entityDrag) return;
       if (locked[active]) {
         if (mode === 'paint' || mode === 'fill') {
           e.stopImmediatePropagation();
@@ -251,6 +271,10 @@
         A.pushHistory();
         const cells = floodFill(m, p.x, p.y, A.selectedTile);
         if (autoOnPaint && cells) autoTileRegion(m, cells);
+        if (window.SNESRender) {
+          const sc = A.scene();
+          window.SNESRender.markDirty(sc.layers || sc, active);
+        }
         A.drawGrid();
         return;
       }
@@ -269,14 +293,17 @@
           A.pushHistory();
           m[p.y][p.x] = A.selectedTile;
           if (autoOnPaint) autoTileRegion(m, [[p.x, p.y]]);
+          if (window.SNESRender) window.SNESRender.markDirty(s.layers || s, active);
           A.drawGrid();
         }
         // Continuar arrasto
         const onMove = ev => {
+          if (A.placeMode || A._entityDrag) return;
           const q = pos(ev);
-          if (m[q.y][q.x] !== A.selectedTile) {
+          if (m[q.y] && m[q.y][q.x] !== A.selectedTile) {
             m[q.y][q.x] = A.selectedTile;
             if (autoOnPaint) autoTileRegion(m, [[q.x, q.y]]);
+            if (window.SNESRender) window.SNESRender.markDirty(s.layers || s, active);
             A.drawGrid();
           }
         };
@@ -303,6 +330,10 @@
       A.pushHistory();
       m[p.y][p.x] = 0;
       if (autoOnPaint) autoTileRegion(m, [[p.x, p.y]]);
+      if (window.SNESRender) {
+        const sc = A.scene();
+        window.SNESRender.markDirty(sc.layers || sc, active);
+      }
       A.drawGrid();
     }, true);
 
@@ -352,25 +383,32 @@
       const theme = A.curTheme();
       const tiles = theme.tiles;
       ctx.clearRect(0, 0, 512, 288);
+      if (window.SNESRender) window.SNESRender.setupCtx(ctx);
 
-      const order = ['background', 'ground', 'decoration', 'foreground', 'collision'];
-      order.forEach(layer => {
-        if (!visible[layer]) return;
-        const m = s.layers[layer];
-        if (!m) return;
-        const alpha = layer === active ? 1 : (layer === 'collision' ? 0.45 : 0.55);
-        ctx.globalAlpha = alpha;
-        for (let y = 0; y < 18; y++)
-          for (let x = 0; x < 32; x++) {
-            const id = m[y][x];
-            if (layer === 'collision') {
-              if (id) {
-                ctx.fillStyle = '#e74c3c88';
-                ctx.fillRect(x * 16, y * 16, 16, 16);
-              }
-              continue;
-            }
-            if (layer === 'background' || id) {
+      const order = [
+        ['background', visible.background !== false, 1],
+        ['ground', visible.ground !== false, 1],
+        ['decoration', visible.decoration !== false, 1],
+        ['foreground', visible.foreground !== false, 0.95],
+        ['collision', visible.collision, 0.35]
+      ];
+      const cols = 32, rows = 18;
+      const owner = s.layers || s;
+      order.forEach(function (entry) {
+        const name = entry[0], vis = entry[1], alpha = entry[2];
+        if (!vis) return;
+        let map = null;
+        if (s.layers && s.layers[name]) map = s.layers[name];
+        else if (name === 'ground') map = s.map;
+        if (!map) return;
+        if (window.SNESRender) {
+          window.SNESRender.blitLayer(ctx, owner, name, map, tiles, cols, rows, alpha);
+        } else {
+          ctx.globalAlpha = alpha;
+          for (let y = 0; y < rows; y++)
+            for (let x = 0; x < cols; x++) {
+              const id = map[y][x];
+              if (!id) continue;
               if (R) R.drawTileAt(ctx, tiles[id] || tiles[0], x * 16, y * 16, 16);
               else {
                 const tt = tiles[id] || tiles[0];
@@ -378,18 +416,9 @@
                 ctx.fillRect(x * 16, y * 16, 16, 16);
               }
             }
-          }
+          ctx.globalAlpha = 1;
+        }
       });
-      ctx.globalAlpha = 1;
-
-      // Grade
-      ctx.strokeStyle = '#ffffff16';
-      for (let x = 0; x <= 32; x++) {
-        ctx.beginPath(); ctx.moveTo(x * 16, 0); ctx.lineTo(x * 16, 288); ctx.stroke();
-      }
-      for (let y = 0; y <= 18; y++) {
-        ctx.beginPath(); ctx.moveTo(0, y * 16); ctx.lineTo(512, y * 16); ctx.stroke();
-      }
 
       // Entidades
       if (!A.playing) {
@@ -431,7 +460,10 @@
     // Migrar cenas ao renderizar
     const oldRender = A.renderAll;
     A.renderAll = function () {
-      A.project.scenes.forEach(ensure);
+      A.project.scenes.forEach(function(sc) {
+        ensure(sc);
+        if (window.SNESRender) window.SNESRender.markAllDirty(sc.layers || sc);
+      });
       oldRender();
     };
 

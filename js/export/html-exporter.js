@@ -21,9 +21,13 @@
       src.upgrades || '',
       src.inventory || '',
       src.collision || '',
+      src.renderCache || '',
+      src.loadWorker || '',
       src.camera || '',
       src.animation || '',
       src.input || '',
+      src.renderCache || '',
+      src.loadWorker || '',
       src.projectStore || ''
     ];
     // Runtime only for this genre

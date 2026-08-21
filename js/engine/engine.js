@@ -63,8 +63,11 @@
     pad.style.display = '';
     attachMobilePad(pad, rt, RT.mobileButtons || ['left','right','jump','attack','action']);
 
-    const ctx = canvas.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    if (global.SNESRender) global.SNESRender.setupCtx(ctx);
+    else ctx.imageSmoothingEnabled = false;
+    const fpsMeter = global.SNESRender ? global.SNESRender.createFpsMeter() : null;
+    let _showFps = false;
 
     function loop(now) {
       if (!playing) return;

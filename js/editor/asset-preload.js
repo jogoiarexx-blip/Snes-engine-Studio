@@ -1,6 +1,14 @@
 /**
  * Preload de assets ao iniciar o Studio + barra leve
  */
+// optional worker warm-up
+(function warm() {
+  if (window.SNESLoadWorker) {
+    window.SNESLoadWorker.ping().then(function () {
+      console.info('[SNES] Load worker OK');
+    }).catch(function () {});
+  }
+})();
 (function () {
   function showBar() {
     let el = document.getElementById('assetLoadBar');
@@ -15,7 +23,15 @@
   }
   function hideBar() {
     const el = document.getElementById('assetLoadBar');
-    if (el) setTimeout(function () { el.remove(); }, 300);
+    if (el) setTimeout// optional worker warm-up
+(function warm() {
+  if (window.SNESLoadWorker) {
+    window.SNESLoadWorker.ping().then(function () {
+      console.info('[SNES] Load worker OK');
+    }).catch(function () {});
+  }
+})();
+(function () { el.remove(); }, 300);
   }
   function run() {
     if (!window.SNESAssets) return;
@@ -25,7 +41,15 @@
     const fill = document.getElementById('assetLoadFill');
     SNESAssets.preloadStudio(project, function (done, total, ratio) {
       if (fill) fill.style.width = Math.round(ratio * 100) + '%';
-    }).then(function () {
+    }).then// optional worker warm-up
+(function warm() {
+  if (window.SNESLoadWorker) {
+    window.SNESLoadWorker.ping().then(function () {
+      console.info('[SNES] Load worker OK');
+    }).catch(function () {});
+  }
+})();
+(function () {
       hideBar();
       if (window.NinjaKartSprites) window.NinjaKartSprites.load('');
       const st = SNESAssets.stats();
