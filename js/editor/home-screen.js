@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio V7 — Tela inicial com recentes / autosave
+ * SNES Engine Studio 1.0 — Tela inicial com recentes / autosave
  */
 (function () {
   'use strict';
@@ -14,8 +14,8 @@
     const recent = (window.SNESSave && window.SNESSave.listRecent()) || [];
     const auto = window.SNESSave && window.SNESSave.loadAutosave();
 
-    let html = '<div class="homeScreen"><h2>◆ SNES Engine Studio V7</h2>';
-    html += '<p class="badge">Multi-Game Engine — Plataforma · Top-down · Shooter</p>';
+    let html = '<div class="homeScreen"><h2>◆ SNES Engine Studio 1.0</h2>';
+    html += '<p class="badge">Multi-Game Engine — 6 gêneros · Assets · Eventos · Chunks · FX</p>';
     html += '<div class="homeActions">';
     html += '<button id="homeNew">＋ Novo projeto</button>';
     html += '<button id="homeOpen">📂 Abrir salvo</button>';
@@ -46,7 +46,7 @@
     const ab = document.getElementById('homeAuto');
     if (ab) ab.onclick = () => {
       A.project = A.migrateProject ? A.migrateProject(auto.project) : auto.project;
-      A.renderAll();
+      A.renderAll(); if(window.SNESAssetDB)window.SNESAssetDB.hydrateProject(A.project).then(()=>A.renderAll());
       m.classList.add('hidden');
       A.toast('Autosave restaurado');
     };
@@ -55,7 +55,7 @@
         const r = recent[+btn.dataset.i];
         if (r && r.snapshot) {
           A.project = A.migrateProject ? A.migrateProject(r.snapshot) : r.snapshot;
-          A.renderAll();
+          A.renderAll(); if(window.SNESAssetDB)window.SNESAssetDB.hydrateProject(A.project).then(()=>A.renderAll());
           m.classList.add('hidden');
           A.toast('Projeto carregado: ' + r.name);
           if (window.SNESStudioUI) window.SNESStudioUI.refreshGameTypeUI();
@@ -66,8 +66,8 @@
 
   function init() {
     // Mostrar home só na primeira visita da sessão
-    if (sessionStorage.getItem('snes_v7_home_seen')) return;
-    sessionStorage.setItem('snes_v7_home_seen', '1');
+    if (sessionStorage.getItem('snes_v10_home_seen')) return;
+    sessionStorage.setItem('snes_v10_home_seen', '1');
     setTimeout(openHome, 200);
   }
 

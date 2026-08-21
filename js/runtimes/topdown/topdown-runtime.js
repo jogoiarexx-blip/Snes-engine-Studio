@@ -142,8 +142,8 @@
     else if (ax > 0.3) p.facing = 'right';
 
     Col.moveAABB(p, map, tiles, dt, { gravity: 0, cols: COLS, rows: ROWS });
-    p.x = Math.max(0, Math.min(W - p.w, p.x));
-    p.y = Math.max(0, Math.min(H - p.h, p.y));
+    p.x = Math.max(0, Math.min(((rt.__studio&&rt.__studio.world.w)||W) - p.w, p.x));
+    p.y = Math.max(0, Math.min(((rt.__studio&&rt.__studio.world.h)||H) - p.h, p.y));
 
     // Optional attack (short range)
     if (input.pressed('attack') && now > (p.nextAttack || 0)) {

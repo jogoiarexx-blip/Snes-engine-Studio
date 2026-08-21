@@ -16,6 +16,9 @@
       scrollDir: opts.scrollDir || 'none', // none | left | up
       worldW: opts.worldW || 512,
       worldH: opts.worldH || 288,
+      smooth: opts.smooth != null ? opts.smooth : 0.15,
+      pixelPerfect: opts.pixelPerfect !== false,
+      shakeEnabled: opts.shakeEnabled !== false,
       viewW: opts.viewW || 512,
       viewH: opts.viewH || 288
     };
@@ -37,10 +40,10 @@
     const ty = target.y;
     const cx = cam.x + cam.viewW / 2;
     const cy = cam.y + cam.viewH / 2;
-    if (tx > cx + cam.deadZoneX) cam.x += (tx - (cx + cam.deadZoneX)) * Math.min(1, 6 * dt);
-    if (tx < cx - cam.deadZoneX) cam.x += (tx - (cx - cam.deadZoneX)) * Math.min(1, 6 * dt);
-    if (ty > cy + cam.deadZoneY) cam.y += (ty - (cy + cam.deadZoneY)) * Math.min(1, 6 * dt);
-    if (ty < cy - cam.deadZoneY) cam.y += (ty - (cy - cam.deadZoneY)) * Math.min(1, 6 * dt);
+    if (tx > cx + cam.deadZoneX) cam.x += (tx - (cx + cam.deadZoneX)) * Math.min(1, Math.max(1, 40 * (cam.smooth || .15)) * dt);
+    if (tx < cx - cam.deadZoneX) cam.x += (tx - (cx - cam.deadZoneX)) * Math.min(1, Math.max(1, 40 * (cam.smooth || .15)) * dt);
+    if (ty > cy + cam.deadZoneY) cam.y += (ty - (cy + cam.deadZoneY)) * Math.min(1, Math.max(1, 40 * (cam.smooth || .15)) * dt);
+    if (ty < cy - cam.deadZoneY) cam.y += (ty - (cy - cam.deadZoneY)) * Math.min(1, Math.max(1, 40 * (cam.smooth || .15)) * dt);
     clamp(cam);
   }
 

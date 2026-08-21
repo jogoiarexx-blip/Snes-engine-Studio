@@ -238,7 +238,7 @@
         rt.scrollX = Math.min(rt.maxScroll, rt.scrollX + d);
       }
     }
-    p.x = Math.max(20, Math.min(W - 20, p.x));
+    p.x = Math.max(20, Math.min(((rt.__studio&&rt.__studio.world.w)||W) - 20, p.x));
 
     // Enemy AI
     rt.enemies.forEach(e => {
@@ -282,7 +282,7 @@
         }
       }
       clampDepth(e);
-      e.x = Math.max(30, Math.min(W - 30, e.x));
+      e.x = Math.max(30, Math.min(((rt.__studio&&rt.__studio.world.w)||W) - 30, e.x));
     });
 
     // Items

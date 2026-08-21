@@ -7,6 +7,11 @@
   const T = 16;
 
   function isSolidTile(tiles, map, px, py, cols, rows) {
+    if (map && map.__studioChunk && global.SNESStudioRuntime) {
+      const q = global.SNESStudioRuntime.tileAtWorld(map, px, py);
+      if (q && !q.outside) { const t = tiles[q.cell] || tiles[0]; return !!(t && t.solid); }
+      if (q && q.outside) return false;
+    }
     const gx = Math.floor(px / T), gy = Math.floor(py / T);
     if (gx < 0 || gy < 0 || gx >= cols || gy >= rows) return true;
     const cell = map[gy] && map[gy][gx];

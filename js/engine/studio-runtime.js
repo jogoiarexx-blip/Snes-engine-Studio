@@ -1,0 +1,99 @@
+/**
+ * SNES Engine Studio 1.0 — shared runtime systems.
+ * Executes Studio data in every genre: events/triggers, chunks, camera config,
+ * parallax, particles, lighting, boss phases, components and profiling.
+ */
+(function(global){
+'use strict';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const uid=(p='id')=>p+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+function cfg(project){project.studio=project.studio||{};const s=project.studio;s.version='1.0';s.world=Object.assign({logicalWidth:512,logicalHeight:288,chunkWidth:512,chunkHeight:288,streaming:false},s.world||{});s.camera=Object.assign({mode:'follow',smooth:.15,lookAhead:28,deadZone:24,pixelPerfect:true,shake:true},s.camera||{});s.events=s.events||[];s.triggers=s.triggers||[];s.parallax=s.parallax||[];s.fx=Object.assign({ambient:1,particlePreset:'none',particleRate:18,lights:[]},s.fx||{});s.animations=s.animations||[];s.bosses=s.bosses||[];s.flags=s.flags||{};return s;}
+function world(project){const s=cfg(project);return {w:Math.max(512,+s.world.logicalWidth||512),h:Math.max(288,+s.world.logicalHeight||288),cw:Math.max(128,+s.world.chunkWidth||512),ch:Math.max(128,+s.world.chunkHeight||288)};}
+
+function blankMap(){return Array.from({length:18},()=>Array(32).fill(0));}
+function cloneMap(m){return (m||blankMap()).map(r=>r.slice());}
+function ensureChunks(scene){
+  scene.chunks=scene.chunks||{};
+  if(!scene.chunks['0,0']){
+    const L=scene.layers||{background:blankMap(),ground:scene.map||blankMap(),foreground:blankMap()};
+    scene.chunks['0,0']={x:0,y:0,layers:{background:cloneMap(L.background),ground:cloneMap(L.ground||scene.map),decoration:cloneMap(L.decoration),foreground:cloneMap(L.foreground),collision:L.collision?cloneMap(L.collision):null}};
+  }
+  for(const k of Object.keys(scene.chunks)){const ch=scene.chunks[k],L=ch.layers||{};for(const n of ['ground','background','decoration','foreground','collision'])if(Array.isArray(L[n])){try{Object.defineProperty(L[n],'__studioChunk',{value:{scene,key:k,layer:n},configurable:true});}catch(_){}}}
+  return scene.chunks;
+}
+function getChunk(scene,cx,cy,create){const chunks=ensureChunks(scene),key=cx+','+cy;if(!chunks[key]&&create)chunks[key]={x:cx,y:cy,layers:{background:blankMap(),ground:blankMap(),decoration:blankMap(),foreground:blankMap(),collision:null}};return chunks[key]||null;}
+function tileAtWorld(map,px,py){const meta=map&&map.__studioChunk;if(!meta)return null;const scene=meta.scene,w=world({studio:scene.__studioProject||{world:{logicalWidth:512,logicalHeight:288,chunkWidth:512,chunkHeight:288}}});const cw=512,ch=288,cx=Math.floor(px/cw),cy=Math.floor(py/ch),chunk=getChunk(scene,cx,cy,false);if(!chunk)return {outside:true,cell:0};const lx=((Math.floor(px/16)%32)+32)%32,ly=((Math.floor(py/16)%18)+18)%18,layer=meta.layer==='collision'?'collision':'ground',m=chunk.layers[layer]||chunk.layers.ground;return {outside:false,cell:m?.[ly]?.[lx]||0};}
+function init(rt){if(!rt||rt.__studio)return rt?.__studio;const s=cfg(rt.project),w=world(rt.project);rt.scene.__studioProject=rt.project.studio;const __chunks=ensureChunks(rt.scene);if(__chunks['0,0']){rt.scene.layers=__chunks['0,0'].layers;rt.scene.map=rt.scene.layers.ground;}const st=rt.__studio={cfg:s,world:w,flags:Object.assign({},s.flags),eventOnce:{},triggerInside:{},particles:[],bursts:[],elapsed:0,frame:0,lastMs:0,fps:60,updateMs:0,drawMs:0,activeChunks:[],allEntities:rt.entities||[],shake:{amp:0,time:0,dur:0},dialogQueue:[],assetImages:{},bossPhases:{}};
+  // component normalization
+  st.allEntities.forEach(e=>normalizeEntity(e));
+  configureCamera(rt);
+  preloadAssets(rt.project,st);
+  return st;
+}
+function normalizeEntity(e){e.components=e.components||{};if(!e.components.transform)e.components.transform={x:e.x||0,y:e.y||0};if(e.spriteAsset&&!e.components.sprite)e.components.sprite={assetId:e.spriteAsset};if(e.hp!=null&&!e.components.health)e.components.health={max:e.maxHp||e.hp,current:e.hp};if(e.ai&&!e.components.ai)e.components.ai={mode:e.ai};return e;}
+function preloadAssets(project,st){for(const a of project?.studio?.assets||[]){if(a.kind==='image'&&(a.dataUrl||a.url)){const img=new Image();img.src=a.dataUrl||a.url;st.assetImages[a.id]=img;}}}
+function configureCamera(rt){if(!rt.camera)return;const c=cfg(rt.project).camera,w=world(rt.project);rt.camera.mode=c.mode==='cinematic'?'follow':c.mode;rt.camera.worldW=w.w;rt.camera.worldH=w.h;rt.camera.viewW=512;rt.camera.viewH=288;rt.camera.lookAhead=+c.lookAhead||0;rt.camera.deadZoneX=rt.camera.deadZoneY=+c.deadZone||24;rt.camera.smooth=clamp(+c.smooth||.15,0,1);rt.camera.pixelPerfect=c.pixelPerfect!==false;rt.camera.shakeEnabled=c.shake!==false;}
+function pointRect(px,py,r){return px>=r.x&&px<=r.x+(r.w||r.width||16)&&py>=r.y&&py<=r.y+(r.h||r.height||16)}
+function getTriggerList(rt){const s=cfg(rt.project),sid=rt.sceneId||rt.scene?.id;const explicit=(s.triggers||[]).filter(t=>!t.sceneId||t.sceneId===sid);const events=(s.events||[]).filter(e=>(!e.sceneId||e.sceneId===sid)&&e.trigger).map(e=>Object.assign({eventId:e.id},e.trigger));return explicit.concat(events);}
+function evalCondition(rt,c){if(!c)return true;const st=init(rt),p=rt.player||{};switch(c.type){case'flag':return st.flags[c.key]===c.value;case'hasKey':return (p.keys||0)>=(c.value||1);case'hpBelow':return (p.hp||0)<=+c.value;case'scoreAtLeast':return (p.score||0)>=+c.value;default:return true}}
+function executeAction(rt,a,event){if(!a)return;const st=init(rt),p=rt.player||{},ents=st.allEntities;let type=a.type||a.action||a.kind;const aliases={door:'openDoor',flag:'setFlag',camera:'cameraShake',spawn:'spawnPrefab',sound:'sound',scene:'scene'};type=aliases[type]||type;switch(type){
+case'dialog':case'message':rt.dialog={text:a.text||a.value||event?.name||'Evento',until:performance.now()+(a.duration||2200)};break;
+case'setFlag':st.flags[a.key||'flag']=a.value!==undefined?a.value:true;break;
+case'openDoor':{const e=ents.find(x=>x.id===a.targetId||x.name===a.target);if(e){e.opened=true;e.active=false;}}break;
+case'closeDoor':{const e=ents.find(x=>x.id===a.targetId||x.name===a.target);if(e)e.opened=false;}break;
+case'teleport':p.x=+a.x||0;p.y=+a.y||0;break;
+case'heal':p.hp=Math.min(p.maxHp||99,(p.hp||0)+(+a.amount||1));break;
+case'damage':p.hp=Math.max(0,(p.hp||0)-(+a.amount||1));break;
+case'checkpoint':p.checkpoint={x:p.x,y:p.y,sceneId:rt.sceneId};break;
+case'cameraShake':shake(rt,+a.amount||8,+a.duration||.35);break;
+case'ambient':st.cfg.fx.ambient=clamp(+a.value,0,1);break;
+case'particles':burst(rt,a.preset||'spark',+a.count||24,+a.x||p.x,+a.y||p.y);break;
+case'spawnPrefab':{const pf=st.cfg.prefabs?.find(x=>x.id===a.prefabId);if(pf){const e=JSON.parse(JSON.stringify(pf.entity));e.id=uid('e');e.x=a.x!=null?+a.x:p.x;e.y=a.y!=null?+a.y:p.y;normalizeEntity(e);st.allEntities.push(e);}}break;
+case'sound':if(global.SNESAudio){const id=a.assetId||a.value||'blip';const asset=st.cfg.assets?.find(x=>x.id===id||x.name===id);if(asset?.dataUrl){global.SNESAudio.loadBuffer(asset.id,asset.dataUrl).then(()=>global.SNESAudio.playSfx(asset.id));}else global.SNESAudio.playProcedural(id);}break;
+case'scene':{const id=a.sceneId||a.value||a.target;const sc=rt.project.scenes?.find(x=>x.id===id||x.name===id);if(sc){rt.sceneId=sc.id;rt.scene=sc;rt.player.x=a.x||32;rt.player.y=a.y||32;}}break;
+case'win':rt.won=true;break;
+}}
+function fireEvent(rt,e){const st=init(rt);if(e.once&&st.eventOnce[e.id])return;if(e.conditions&&!e.conditions.every(c=>evalCondition(rt,c)))return;const acts=e.actions||[{type:e.action,text:e.text||e.value,target:e.target||e.value,value:e.value}];acts.forEach(a=>executeAction(rt,a,e));if(e.once)st.eventOnce[e.id]=true;}
+function updateEvents(rt){const st=init(rt),p=rt.player;if(!p)return;const s=st.cfg,sid=rt.sceneId||rt.scene?.id;
+  for(const t of getTriggerList(rt)){const id=t.id||t.eventId||uid('tr'),inside=pointRect(p.x+(p.w||0)/2,p.y+(p.h||0)/2,t),was=!!st.triggerInside[id];st.triggerInside[id]=inside;if(inside&&!was){const e=s.events.find(x=>x.id===t.eventId)||s.events.find(x=>x.triggerId===id);if(e)fireEvent(rt,e);}}
+  for(const e of s.events.filter(x=>(!x.sceneId||x.sceneId===sid)&&!x.trigger&&!x.triggerId)){
+    if((e.when==='start'||e.when==='sceneStart')&&!st.eventOnce['start_'+e.id]){fireEvent(rt,e);st.eventOnce['start_'+e.id]=true}
+    if(e.when==='hpBelow'&&evalCondition(rt,{type:'hpBelow',value:e.value}))fireEvent(rt,e);
+    if(e.when==='interact'&&rt.input&&rt.input.pressed&&rt.input.pressed('action'))fireEvent(rt,e);
+    if(e.when==='enemyDead'){const target=st.allEntities.find(x=>x.id===e.targetId||x.name===e.value||x.id===e.value);if(target&&target.dead)fireEvent(rt,e);}
+    if(e.when==='collect'){const target=st.allEntities.find(x=>x.id===e.targetId||x.name===e.value||x.id===e.value);if(!target||target.dead||target.collected)fireEvent(rt,e);}
+  }
+}
+function chunkFor(x,y,w){return {x:Math.floor(x/w.cw),y:Math.floor(y/w.ch)}}
+function updateChunks(rt){const st=init(rt),w=st.world,c=rt.camera||{x:0,y:0},pad=1;const minX=Math.max(0,Math.floor((c.x||0)/w.cw)-pad),maxX=Math.floor(((c.x||0)+512)/w.cw)+pad,minY=Math.max(0,Math.floor((c.y||0)/w.ch)-pad),maxY=Math.floor(((c.y||0)+288)/w.ch)+pad;const arr=[];for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++)arr.push(x+','+y);st.activeChunks=arr;
+ if(st.cfg.world.streaming&&st.allEntities.length){const active=st.allEntities.filter(e=>e.type==='player'||arr.includes(chunkFor(e.x||0,e.y||0,w).x+','+chunkFor(e.x||0,e.y||0,w).y));rt.entities=active;}else rt.entities=st.allEntities;
+}
+function mergeEntities(rt){const st=init(rt);for(const e of rt.entities||[])if(!st.allEntities.includes(e))st.allEntities.push(e);st.allEntities=st.allEntities.filter(e=>!e.__remove);}
+function updateBosses(rt,dt){const st=init(rt);for(const b of st.cfg.bosses||[]){const e=st.allEntities.find(x=>x.bossId===b.id||x.id===b.entityId||x.name===b.name);if(!e||e.dead)continue;const max=e.maxHp||e.hp||1,pct=100*(e.hp||0)/max;let idx=b.phases?.findIndex(ph=>pct<=ph.from&&pct>ph.to);if(idx<0)idx=(b.phases?.length||1)-1;if(st.bossPhases[b.id]!==idx){st.bossPhases[b.id]=idx;const ph=b.phases?.[idx];if(ph?.onEnter)ph.onEnter.forEach(a=>executeAction(rt,a));if(ph?.attacks?.includes('invocação')||ph?.attacks?.includes('spawn'))executeAction(rt,{type:'particles',preset:'smoke',count:32,x:e.x,y:e.y});}
+ const ph=b.phases?.[idx];if(!ph)continue;e.__bossClock=(e.__bossClock||0)+dt;if(e.__bossClock>(ph.interval||2.2)){e.__bossClock=0;const atk=ph.attacks?.[Math.floor(Math.random()*ph.attacks.length)];if(atk==='dash'){const dir=(rt.player?.x||0)<e.x?-1:1;e.vx=dir*(ph.dashSpeed||220);}else if(atk==='especial'||atk==='shake')shake(rt,8,.35);else if(atk==='invocação')executeAction(rt,{type:'spawnPrefab',prefabId:ph.prefabId||'pf_enemy',x:e.x+24,y:e.y});}}
+}
+function particleProps(preset){return {dust:[-.1,.2,10,18],leaves:[-.4,.4,14,30],rain:[1,1,180,260],snow:[-.4,.4,18,35],fire:[-.4,.4,-50,-20],spark:[-1,1,-80,80],smoke:[-.3,.3,-25,-10]}[preset]||[-.2,.2,8,18];}
+function spawnParticle(st,preset,x,y){const q=particleProps(preset),ang=(Math.random()*2-1),vx=(q[0]+Math.random()*(q[1]-q[0]))*80,vy=q[2]+Math.random()*(q[3]-q[2]);st.particles.push({preset,x,y,vx,vy,life:.6+Math.random()*1.4,max:2,size:1+Math.random()*2});}
+function burst(rt,preset,count,x,y){const st=init(rt);for(let i=0;i<count;i++)spawnParticle(st,preset,x,y);}
+function updateParticles(rt,dt){const st=init(rt),f=st.cfg.fx,preset=f.particlePreset||'none';st.__emit=(st.__emit||0)+dt*(+f.particleRate||0);while(st.__emit>=1&&preset!=='none'){st.__emit--;spawnParticle(st,preset,(rt.camera?.x||0)+Math.random()*512,(rt.camera?.y||0)+Math.random()*288)}for(const p of st.particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.preset==='dust'||p.preset==='leaves')p.vy+=8*dt;}st.particles=st.particles.filter(p=>p.life>0).slice(-600);}
+function shake(rt,amount,duration){const st=init(rt);if(st.cfg.camera.shake===false)return;st.shake={amp:amount,time:duration,dur:duration};}
+function updateShake(rt,dt){const st=init(rt);if(st.shake.time>0)st.shake.time=Math.max(0,st.shake.time-dt);}
+function beginFrame(rt,dt){const t=performance.now(),st=init(rt);st.frame++;st.elapsed+=dt;configureCamera(rt);updateChunks(rt);updateEvents(rt);updateBosses(rt,dt);updateParticles(rt,dt);updateShake(rt,dt);st.__tickStart=t;}
+function afterTick(rt){const st=init(rt);mergeEntities(rt);st.updateMs=performance.now()-st.__tickStart;}
+function beforeDraw(rt){const st=init(rt);st.__drawStart=performance.now();}
+function drawParallax(ctx,rt){const st=init(rt),cam=rt.camera||{x:0,y:0};for(const l of st.cfg.parallax||[]){if(l.visible===false||!l.assetId)continue;const img=st.assetImages[l.assetId];if(!img?.complete)continue;const x=-((cam.x||0)*(+l.speedX||0))%Math.max(1,img.width),y=-((cam.y||0)*(+l.speedY||0))%Math.max(1,img.height);for(let xx=x-img.width;xx<512;xx+=img.width)for(let yy=y-img.height;yy<288;yy+=img.height)ctx.drawImage(img,xx,yy);}}
+function drawParticles(ctx,rt){const st=init(rt),cam=rt.camera||{x:0,y:0};ctx.save();for(const p of st.particles){const x=p.x-(cam.x||0),y=p.y-(cam.y||0);if(x<-8||x>520||y<-8||y>296)continue;ctx.globalAlpha=clamp(p.life/.5,0,1);ctx.fillStyle=p.preset==='fire'?'#ffd27a':p.preset==='rain'?'#b8d8ff':p.preset==='snow'?'#fff':'#d9d0aa';if(p.preset==='rain')ctx.fillRect(x,y,1,5);else ctx.fillRect(x,y,p.size,p.size);}ctx.restore();}
+function drawLighting(ctx,rt){const st=init(rt),f=st.cfg.fx,ambient=clamp(+f.ambient,0,1);if(ambient<.999){ctx.save();ctx.fillStyle='rgba(0,0,0,'+(1-ambient)*.82+')';ctx.fillRect(0,0,512,288);ctx.globalCompositeOperation='destination-out';const cam=rt.camera||{x:0,y:0};for(const l of f.lights||[]){const x=(l.x||0)-(cam.x||0),y=(l.y||0)-(cam.y||0),r=+l.radius||80,g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,'rgba(0,0,0,'+(+l.intensity||.9)+')');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}ctx.restore();}}
+function drawTriggers(ctx,rt){const st=init(rt);if(!st.cfg.debug?.triggers)return;const cam=rt.camera||{x:0,y:0};ctx.save();ctx.strokeStyle='rgba(255,210,70,.85)';ctx.setLineDash([4,3]);for(const t of getTriggerList(rt))ctx.strokeRect(t.x-(cam.x||0),t.y-(cam.y||0),t.w||16,t.h||16);ctx.restore();}
+
+function drawTileSimple(ctx,t,x,y,size){ctx.fillStyle=t?.color||'#111827';ctx.fillRect(x,y,size,size);for(const d of t?.decos||[]){if(d.color){ctx.fillStyle=d.color;ctx.fillRect(x+d.x,y+d.y,d.w,d.h)}else if(d.outline){ctx.strokeStyle=d.outline;ctx.strokeRect(x+d.x+.5,y+d.y+.5,d.w-1,d.h-1)}}}
+function drawWorldTiles(ctx,rt){const st=init(rt),scene=rt.scene,theme=rt.__studioThemes?.[scene.themeId];if(!theme)return;const chunks=ensureChunks(scene),keys=st.activeChunks.length?st.activeChunks:Object.keys(chunks),cam=rt.camera||{x:0,y:0};if(Object.keys(chunks).length<=1&&(cam.x||0)===0&&(cam.y||0)===0)return;ctx.save();for(const key of keys){const ch=chunks[key];if(!ch)continue;const [cx,cy]=key.split(',').map(Number),ox=cx*512-(cam.x||0),oy=cy*288-(cam.y||0),L=ch.layers||{};for(const layer of ['background','ground','decoration']){const m=L[layer];if(!m)continue;for(let y=0;y<18;y++)for(let x=0;x<32;x++){const cell=m[y]?.[x]||0;if(layer!=='background'&&!cell)continue;drawTileSimple(ctx,theme.tiles[cell]||theme.tiles[0],ox+x*16,oy+y*16,16);}}}ctx.restore();}
+function drawAssetSprites(ctx,rt){const st=init(rt),cam=rt.camera||{x:0,y:0},assets=st.cfg.assets||[],anims=st.cfg.animations||[];function drawFor(e,body){if(!e?.spriteAsset)return;const img=st.assetImages[e.spriteAsset];if(!img?.complete||!img.naturalWidth)return;let animId=e.animationId;if(e.playerVisual==='hero_blue_red'){const attacking=body?.state==='attack'||body?.attacking||((body?.attackUntil||0)>performance.now());const moving=Math.abs(body?.vx||0)>4||Math.abs(body?.vy||0)>4;animId=attacking?'hero_blue_red_attack':moving?'hero_blue_red_run':'hero_blue_red_idle';}const a=anims.find(x=>x.id===animId),dw=e.spriteW||e.w||16,dh=e.spriteH||e.h||16;let x=(body.x||0)-(cam.x||0),y=(body.y||0)-(cam.y||0);if(e.playerVisual==='hero_blue_red'){const cw=e.w||14,ch=e.h||22;x-=(dw-cw)/2;y+=ch-dh;}function paint(fr){ctx.save();ctx.imageSmoothingEnabled=false;const flip=e.playerVisual==='hero_blue_red'&&(body?.facing==='left'||body?.dir==='left');if(flip){ctx.translate(x+dw,0);ctx.scale(-1,1);ctx.drawImage(img,fr[0],fr[1],fr[2],fr[3],0,y,dw,dh)}else ctx.drawImage(img,fr[0],fr[1],fr[2],fr[3],x,y,dw,dh);ctx.restore();}if(a&&a.frames?.length){const fps=a.fps||8,raw=Math.floor(st.elapsed*fps),idx=a.loop===false?Math.min(a.frames.length-1,raw%a.frames.length):raw%a.frames.length,fr=a.frames[idx];if(Array.isArray(fr)&&fr.length>=4)paint(fr);else{const fw=a.frameWidth||e.frameWidth||16,fh=a.frameHeight||e.frameHeight||16,n=+fr||0,cols=Math.max(1,Math.floor(img.naturalWidth/fw));paint([(n%cols)*fw,Math.floor(n/cols)*fh,fw,fh])}}else{ctx.drawImage(img,x,y,dw,dh)}}
+ const originals=rt.scene.entities||[];const pe=originals.find(e=>e.type==='player');if(pe)drawFor(pe,rt.player);for(const e of st.allEntities){if(e.type==='player')continue;drawFor(e,e)}}
+function drawProfiler(ctx,rt){const st=init(rt);if(!st.cfg.debug?.profiler)return;ctx.save();ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(4,4,170,52);ctx.fillStyle='#fff';ctx.font='10px monospace';ctx.fillText('FPS '+st.fps.toFixed(0)+'  U '+st.updateMs.toFixed(2)+'ms D '+st.drawMs.toFixed(2)+'ms',9,18);ctx.fillText('Entities '+rt.entities.length+'/'+st.allEntities.length+'  Chunks '+st.activeChunks.length,9,32);ctx.fillText('Particles '+st.particles.length,9,46);ctx.restore();}
+function applyShake(ctx,rt){const st=init(rt);if(st.shake.time<=0)return {x:0,y:0};const k=st.shake.time/st.shake.dur,amp=st.shake.amp*k;return {x:(Math.random()*2-1)*amp,y:(Math.random()*2-1)*amp};}
+function afterDraw(ctx,rt){const st=init(rt);drawWorldTiles(ctx,rt);drawAssetSprites(ctx,rt);drawParticles(ctx,rt);drawLighting(ctx,rt);drawTriggers(ctx,rt);drawProfiler(ctx,rt);st.drawMs=performance.now()-st.__drawStart;const total=st.updateMs+st.drawMs;st.lastMs=st.lastMs*.9+total*.1;st.fps=st.lastMs?Math.min(999,1000/Math.max(1,st.lastMs)):60;}
+function endFrame(rt){const st=init(rt);rt.entities=st.allEntities;}
+function activeChunks(rt){return init(rt).activeChunks.slice();}
+global.SNESStudioRuntime={cfg,world,ensureChunks,getChunk,tileAtWorld,init,normalizeEntity,configureCamera,beginFrame,afterTick,beforeDraw,drawParallax,afterDraw,endFrame,applyShake,executeAction,fireEvent,burst,shake,activeChunks};
+})(typeof window!=='undefined'?window:globalThis);

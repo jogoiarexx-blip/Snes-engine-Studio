@@ -73,8 +73,17 @@
       if (!playing) return;
       const dt = Math.min(0.033, last ? (now - last) / 1000 : 1 / 60);
       last = now;
+      const Studio = global.SNESStudioRuntime;
+      if (Studio) { rt.__studioThemes = themes; Studio.beginFrame(rt, dt); }
       RT.tick(rt, themes, enemyVariants, dt, now);
+      if (Studio) Studio.afterTick(rt);
+      if (Studio) Studio.beforeDraw(rt);
+      const sh = Studio ? Studio.applyShake && Studio.applyShake(ctx, rt) : null;
+      if (sh && (sh.x || sh.y)) { ctx.save(); ctx.translate(sh.x, sh.y); }
       RT.drawFrame(ctx, rt, themes, enemyVariants, skeletonDraw);
+      if (sh && (sh.x || sh.y)) ctx.restore();
+      if (Studio) Studio.afterDraw(ctx, rt);
+      if (Studio) Studio.endFrame(rt);
       if (rt.gameOver || rt.won) {
         // keep drawing for a moment
       }

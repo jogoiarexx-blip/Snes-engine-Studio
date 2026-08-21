@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio 0.9 — Persistência de projetos
+ * SNES Engine Studio 1.0 — Persistência de projetos
  * localStorage: configs + lista recente
  * IndexedDB: projetos grandes (com fallback localStorage comprimido)
  * RLE + base64 para Uint8Array de pistas
@@ -7,11 +7,11 @@
 (function (global) {
   'use strict';
 
-  const DB_NAME = 'snes_studio_0_9';
+  const DB_NAME = 'snes_studio_1_0';
   const DB_VER = 1;
   const STORE = 'projects';
-  const RECENT_KEY = 'snes_v09_recent';
-  const CFG_KEY = 'snes_v09_cfg';
+  const RECENT_KEY = 'snes_v10_recent';
+  const CFG_KEY = 'snes_v10_cfg';
 
   // —— RLE for Uint8Array ——
   function rleEncode(u8) {
@@ -109,13 +109,29 @@
     if (project.kartTrack) {
       p.kartTrack = serializeTrack(project.kartTrack);
     }
-    p.schemaVersion = 9;
-    p.version = p.version || '0.9';
+    p.schemaVersion = 10;
+    p.version = '1.0';
+    p.studio = p.studio || {};
+    p.studio.version = '1.0';
     return p;
   }
 
   function restoreProject(data) {
     if (!data || typeof data !== 'object') return null;
+    // V9 -> V10: preserve old projects and create the completed Studio schema.
+    data.schemaVersion = 10;
+    data.version = '1.0';
+    data.studio = data.studio || {};
+    data.studio.version = '1.0';
+    data.studio.assets = data.studio.assets || [];
+    data.studio.prefabs = data.studio.prefabs || [];
+    data.studio.events = data.studio.events || [];
+    data.studio.triggers = data.studio.triggers || [];
+    data.studio.animations = data.studio.animations || [];
+    data.studio.bosses = data.studio.bosses || [];
+    data.studio.fx = Object.assign({ambient:1,particlePreset:'none',particleRate:18,lights:[]}, data.studio.fx || {});
+    data.studio.world = Object.assign({logicalWidth:512,logicalHeight:288,chunkWidth:512,chunkHeight:288,streaming:false}, data.studio.world || {});
+    data.studio.camera = Object.assign({mode:'follow',smooth:.15,lookAhead:28,deadZone:24,pixelPerfect:true,shake:true}, data.studio.camera || {});
     if (data.kartTrack) {
       const t = deserializeTrack(data.kartTrack);
       if (t) data.kartTrack = t;

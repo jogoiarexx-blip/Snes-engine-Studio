@@ -20,6 +20,7 @@ function studio(){
  s.prefabs=s.prefabs||defaultPrefabs();
  s.events=s.events||[];
  s.animations=s.animations||[];
+ ensureBuiltInHero(s);
  s.parallax=s.parallax||[
   {id:uid('px'),name:'Céu',speedX:.05,speedY:.02,visible:true},
   {id:uid('px'),name:'Fundo distante',speedX:.2,speedY:.05,visible:true},
@@ -31,6 +32,19 @@ function studio(){
  s.world=Object.assign({logicalWidth:5000,logicalHeight:650,chunkWidth:512,chunkHeight:288,streaming:true},s.world||{});
  s.bosses=s.bosses||[];
  return s;
+}
+
+function ensureBuiltInHero(s){
+ const data=window.__HERO_BLUE_RED_SHEET_DATAURL||'';
+ const assetId='builtin_hero_blue_red';
+ if(!s.assets.some(a=>a.id===assetId))s.assets.push({id:assetId,name:'Herói Azul/Vermelho — Sprite Sheet',kind:'image',type:'image/png',size:0,dataUrl:data||null,url:data?'':'assets/hero-blue-red-sheet.png',builtin:true,placeholder:false});
+ else {const a=s.assets.find(a=>a.id===assetId);if(data&&!a.dataUrl)a.dataUrl=data;a.builtin=true;}
+ const presets=[
+  {id:'hero_blue_red_idle',name:'Herói Azul/Vermelho — Idle',fps:3,loop:true,assetId,frames:[[13,1,119,178],[147,4,113,176]]},
+  {id:'hero_blue_red_run',name:'Herói Azul/Vermelho — Corrida',fps:12,loop:true,assetId,frames:[[8,188,126,168],[155,187,107,169],[266,187,128,174],[402,190,123,171],[529,187,139,169],[667,190,120,166],[782,192,124,166],[897,196,112,176],[1008,194,115,185],[1134,191,125,181],[1261,193,128,185],[1397,203,126,159]]},
+  {id:'hero_blue_red_attack',name:'Herói Azul/Vermelho — Ataque',fps:10,loop:false,assetId,frames:[[15,369,188,168],[179,369,179,174],[364,376,143,164],[521,378,203,183],[735,372,210,172],[949,386,229,171],[1169,385,186,173],[1332,387,196,166]]}
+ ];
+ for(const a of presets)if(!s.animations.some(x=>x.id===a.id))s.animations.push(a);
 }
 function defaultPrefabs(){return [
  {id:'pf_coin',name:'Moeda',icon:'🪙',entity:{type:'item',name:'Moeda',hp:1}},
@@ -97,22 +111,32 @@ function renderAssets(body){
  const drop=$('#s10Drop');['dragenter','dragover'].forEach(e=>drop.addEventListener(e,x=>{x.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(e=>drop.addEventListener(e,x=>{x.preventDefault();drop.classList.remove('over')}));drop.addEventListener('drop',e=>importFiles(e.dataTransfer.files));
  $('#s10AssetSearch').oninput=drawAssets;$('#s10AssetKind').onchange=drawAssets;$('#s10Manifest').onclick=downloadManifest;drawAssets();
 }
-function importFiles(files){
- const s=studio(); [...files].forEach(f=>{const kind=f.type.startsWith('image')?'image':f.type.startsWith('audio')?'audio':'json';const url=URL.createObjectURL(f);objectURLs.push(url);s.assets.push({id:uid('asset'),name:f.name,kind,size:f.size,type:f.type,url,placeholder:false,importedAt:Date.now()})});toast(files.length+' asset(s) importado(s)');drawAssets();
+async function importFiles(files){
+ const s=studio(), list=[...files];
+ for(const f of list){
+  try{
+   const rec=window.SNESAssetDB?await window.SNESAssetDB.put(f):{id:uid('asset'),name:f.name,kind:f.type.startsWith('image')?'image':f.type.startsWith('audio')?'audio':'json',size:f.size,type:f.type,dataUrl:await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})};
+   const prev=s.assets.findIndex(a=>a.name===rec.name);const meta={id:rec.id,name:rec.name,kind:rec.kind,size:rec.size,type:rec.type,dataUrl:rec.dataUrl,placeholder:false,importedAt:Date.now()};
+   if(prev>=0)s.assets[prev]=meta;else s.assets.push(meta);
+  }catch(err){console.warn('[Studio1.0] asset import failed',err)}
+ }
+ toast(list.length+' asset(s) importado(s) e persistido(s)');drawAssets();mark('Assets atualizados');
 }
 function drawAssets(){
  const grid=$('#s10AssetGrid');if(!grid)return;const q=($('#s10AssetSearch')?.value||'').toLowerCase(),k=$('#s10AssetKind')?.value||'';
  const arr=studio().assets.filter(a=>(!k||a.kind===k)&&(!q||a.name.toLowerCase().includes(q)));
- grid.innerHTML=arr.length?arr.map(a=>`<div class="s10-asset" data-id="${a.id}"><div class="s10-thumb">${a.kind==='image'&&a.url?`<img src="${a.url}">`:a.kind==='audio'?'♫':'{}'}</div><b title="${a.name}">${a.name}</b><small>${a.kind} · ${Math.max(1,Math.round((a.size||0)/1024))} KB</small><button class="s10-del">×</button></div>`).join(''):'<div class="s10-empty">Nenhum asset ainda. Importe depois seus sprites e backgrounds.</div>';
- $$('.s10-del',grid).forEach(b=>b.onclick=e=>{const id=e.target.closest('.s10-asset').dataset.id;studio().assets=studio().assets.filter(a=>a.id!==id);drawAssets()});
+ grid.innerHTML=arr.length?arr.map(a=>`<div class="s10-asset" data-id="${a.id}"><div class="s10-thumb">${a.kind==='image'&&(a.dataUrl||a.url)?`<img src="${a.dataUrl||a.url}">`:a.kind==='audio'?'♫':'{}'}</div><b title="${a.name}">${a.name}</b><small>${a.kind} · ${Math.max(1,Math.round((a.size||0)/1024))} KB</small><button class="s10-del">×</button></div>`).join(''):'<div class="s10-empty">Nenhum asset ainda. Importe depois seus sprites e backgrounds.</div>';
+ $$('.s10-del',grid).forEach(b=>b.onclick=e=>{const id=e.target.closest('.s10-asset').dataset.id;studio().assets=studio().assets.filter(a=>a.id!==id);if(window.SNESAssetDB)window.SNESAssetDB.remove(id);drawAssets();mark('Asset removido')});
 }
 function downloadManifest(){const s=studio();const out={version:1,assets:s.assets.map(({url,...a})=>a),generatedAt:new Date().toISOString()};A.downloadFile('assets.json',JSON.stringify(out,null,2),'application/json');}
 
 function renderPrefabs(body){
- const s=studio();body.innerHTML=section('Biblioteca de Prefabs',`<div id="s10PrefabGrid" class="s10-prefab-grid">${s.prefabs.map(p=>`<button data-id="${p.id}"><span>${p.icon||'🧩'}</span><b>${p.name}</b></button>`).join('')}</div><div class="s10-actions"><button id="s10PrefabFromSel">＋ Do selecionado</button><button id="s10PrefabJSON">Exportar JSON</button></div>`)+section('Como usar','<small class="s10-note">Clique em um prefab para adicioná-lo no centro da cena. Depois ajuste posição e propriedades no inspetor normal.</small>');
- $$('#s10PrefabGrid button').forEach(b=>b.onclick=()=>placePrefab(b.dataset.id));$('#s10PrefabFromSel').onclick=saveSelectedAsPrefab;$('#s10PrefabJSON').onclick=()=>A.downloadFile('prefabs.json',JSON.stringify(s.prefabs,null,2),'application/json');
+ const s=studio();body.innerHTML=section('Biblioteca de Prefabs',`<div id="s10PrefabGrid" class="s10-prefab-grid">${s.prefabs.map(p=>`<button data-id="${p.id}"><span>${p.icon||'🧩'}</span><b>${p.name}</b></button>`).join('')}</div><div class="s10-actions"><button id="s10PrefabFromSel">＋ Do selecionado</button><button id="s10PrefabJSON">Exportar JSON</button><button id="s10PrefabSync">Sincronizar instâncias</button></div>`)+section('Como usar','<small class="s10-note">Clique em um prefab para adicioná-lo no centro da cena. Depois ajuste posição e propriedades no inspetor normal.</small>');
+ $$('#s10PrefabGrid button').forEach(b=>b.onclick=()=>placePrefab(b.dataset.id));$('#s10PrefabFromSel').onclick=saveSelectedAsPrefab;$('#s10PrefabJSON').onclick=()=>A.downloadFile('prefabs.json',JSON.stringify(s.prefabs,null,2),'application/json');$('#s10PrefabSync').onclick=syncPrefabs;
 }
-function placePrefab(id){const p=studio().prefabs.find(x=>x.id===id);if(!p)return;const e=Object.assign({id:uid('e'),x:256,y:144},clone(p.entity));A.pushHistory();A.scene().entities=A.scene().entities||[];A.scene().entities.push(e);A.selectedEntity=e.id;A.renderAll();toast(p.name+' adicionado');}
+function placePrefab(id){const p=studio().prefabs.find(x=>x.id===id);if(!p)return;const e=Object.assign({id:uid('e'),x:256,y:144,prefabId:p.id},clone(p.entity));A.pushHistory();A.scene().entities=A.scene().entities||[];A.scene().entities.push(e);A.selectedEntity=e.id;A.renderAll();toast(p.name+' adicionado');}
+
+function syncPrefabs(){const s=studio();let n=0;for(const sc of A.project.scenes||[])for(const e of sc.entities||[]){if(!e.prefabId)continue;const pf=s.prefabs.find(p=>p.id===e.prefabId);if(!pf)continue;const keep={id:e.id,x:e.x,y:e.y,prefabId:e.prefabId};Object.keys(e).forEach(k=>delete e[k]);Object.assign(e,clone(pf.entity),keep);n++;}mark('Prefabs sincronizados');toast(n+' instância(s) atualizada(s)');renderDock()}
 function saveSelectedAsPrefab(){const e=(A.scene().entities||[]).find(x=>x.id===A.selectedEntity);if(!e)return toast('Selecione uma entidade primeiro');const name=prompt('Nome do prefab:',e.name||e.type||'Prefab');if(!name)return;const cp=clone(e);delete cp.id;delete cp.x;delete cp.y;studio().prefabs.push({id:uid('pf'),name,icon:'🧩',entity:cp});renderDock();toast('Prefab criado');}
 
 function renderEvents(body){
@@ -128,8 +152,11 @@ function renderAnimation(body){
 function renderWorld(body){
  const s=studio(),w=s.world,c=s.camera,p=s.parallax;
  body.innerHTML=section('Mapa grande / streaming',`${field('Largura lógica','s10WorldW',w.logicalWidth,'number','min="512" step="16"')}${field('Altura lógica','s10WorldH',w.logicalHeight,'number','min="288" step="16"')}${field('Chunk W','s10ChunkW',w.chunkWidth,'number','min="128" step="16"')}${field('Chunk H','s10ChunkH',w.chunkHeight,'number','min="128" step="16"')}<label class="s10-check"><input id="s10Streaming" type="checkbox" ${w.streaming?'checked':''}> Streaming por chunks</label><button id="s10WorldApply" class="s10-primary">Aplicar configuração</button><div class="s10-world-stat" id="s10WorldStat"></div>`)+
- section('Câmera',`${select('Modo','s10CamMode',c.mode,[['follow','Seguir Player'],['fixed','Fixa'],['cinematic','Cinemática']])}${field('Suavização','s10CamSmooth',c.smooth,'number','min="0" max="1" step="0.05"')}${field('Look ahead','s10CamLook',c.lookAhead,'number','min="0"')}${field('Dead zone','s10CamDead',c.deadZone,'number','min="0"')}<label class="s10-check"><input id="s10Pixel" type="checkbox" ${c.pixelPerfect?'checked':''}> Pixel perfect</label><label class="s10-check"><input id="s10Shake" type="checkbox" ${c.shake?'checked':''}> Camera shake</label>`)+
- section('Parallax',`<div id="s10Parallax">${p.map(x=>`<div class="s10-parallax" data-id="${x.id}"><input class="pn" value="${x.name}"><label>X <input class="px" type="number" step="0.05" value="${x.speedX}"></label><label>Y <input class="py" type="number" step="0.05" value="${x.speedY}"></label><button>×</button></div>`).join('')}</div><button id="s10PxAdd">＋ Camada</button>`);
+ section('Câmera',`${select('Modo','s10CamMode',c.mode,[['follow','Seguir Player'],['fixed','Fixa'],['cinematic','Cinemática']])}${field('Suavização','s10CamSmooth',c.smooth,'number','min="0" max="1" step="0.05"')}${field('Look ahead','s10CamLook',c.lookAhead,'number','min="0"')}${field('Dead zone','s10CamDead',c.deadZone,'number','min="0"')}<label class="s10-check"><input id="s10Pixel" type="checkbox" ${c.pixelPerfect?'checked':''}> Pixel perfect</label><label class="s10-check"><input id="s10Shake" type="checkbox" ${c.shake?'checked':''}> Camera shake</label>`);
+ const imageAssets=(s.assets||[]).filter(a=>a.kind==='image');
+ body.innerHTML+=section('Parallax Assets',`<div id="s10ParallaxAssets">${p.map(x=>`<div class="s10-parallax" data-pxid="${x.id}"><b>${x.name}</b><select class="pa"><option value="">Sem imagem</option>${imageAssets.map(a=>`<option value="${a.id}" ${x.assetId===a.id?'selected':''}>${a.name}</option>`).join('')}</select></div>`).join('')}</div>`);
+
+ body.innerHTML+=section('Parallax Config',`<div id="s10Parallax">${p.map(x=>`<div class="s10-parallax" data-id="${x.id}"><input class="pn" value="${x.name}"><label>X <input class="px" type="number" step="0.05" value="${x.speedX}"></label><label>Y <input class="py" type="number" step="0.05" value="${x.speedY}"></label><button>×</button></div>`).join('')}</div><button id="s10PxAdd">＋ Camada</button>`);$$('[data-pxid]').forEach(r=>{const x=p.find(a=>a.id===r.dataset.pxid);$('.pa',r).onchange=e=>x.assetId=e.target.value||null});
  const updateStat=()=>{const cw=Math.ceil((+$('#s10WorldW').value||512)/(+$('#s10ChunkW').value||512)),ch=Math.ceil((+$('#s10WorldH').value||288)/(+$('#s10ChunkH').value||288));$('#s10WorldStat').textContent=`${cw} × ${ch} = ${cw*ch} chunks lógicos`;};['s10WorldW','s10WorldH','s10ChunkW','s10ChunkH'].forEach(id=>$('#'+id).oninput=updateStat);updateStat();
  $('#s10WorldApply').onclick=()=>{Object.assign(w,{logicalWidth:+$('#s10WorldW').value,logicalHeight:+$('#s10WorldH').value,chunkWidth:+$('#s10ChunkW').value,chunkHeight:+$('#s10ChunkH').value,streaming:$('#s10Streaming').checked});toast('Mundo configurado para streaming');updateOverlay()};
  ['s10CamMode','s10CamSmooth','s10CamLook','s10CamDead','s10Pixel','s10Shake'].forEach(id=>$('#'+id).onchange=()=>{Object.assign(c,{mode:$('#s10CamMode').value,smooth:+$('#s10CamSmooth').value,lookAhead:+$('#s10CamLook').value,deadZone:+$('#s10CamDead').value,pixelPerfect:$('#s10Pixel').checked,shake:$('#s10Shake').checked})});
@@ -146,15 +173,15 @@ function particlePreview(){const wrap=$('.canvas-wrap');if(!wrap)return;const la
 
 function renderDebug(body){
  const d=studio().debug;const ents=A.scene().entities||[];
- body.innerHTML=section('Visualização',`<label class="s10-check"><input id="s10Hit" type="checkbox" ${d.hitboxes?'checked':''}> Mostrar hitboxes</label><label class="s10-check"><input id="s10Chunk" type="checkbox" ${d.chunkBounds?'checked':''}> Limites de chunks</label><label class="s10-check"><input id="s10Trig" type="checkbox" ${d.triggers?'checked':''}> Triggers</label>`)+section('Cena atual',`<div class="s10-metrics"><div><b>${ents.length}</b><small>entidades</small></div><div><b>${(A.scene().layers?Object.keys(A.scene().layers).length:1)}</b><small>camadas</small></div><div><b>${studio().events.filter(e=>e.sceneId===A.scene().id).length}</b><small>eventos</small></div><div><b>${studio().assets.length}</b><small>assets</small></div></div>`)+section('Validação',`<button id="s10Validate" class="s10-primary">✓ Validar projeto</button><div id="s10Validation" class="s10-validation"></div>`)+section('Ferramentas',`<button id="s10ExportStudio">Exportar Studio Data</button> <button id="s10Clean">Limpar referências quebradas</button>`);
- $('#s10Hit').onchange=e=>{d.hitboxes=e.target.checked;updateOverlay()};$('#s10Chunk').onchange=e=>{d.chunkBounds=e.target.checked;updateOverlay()};$('#s10Trig').onchange=e=>{d.triggers=e.target.checked;updateOverlay()};$('#s10Validate').onclick=validateProject;$('#s10ExportStudio').onclick=()=>A.downloadFile('studio-data.json',JSON.stringify(studio(),null,2),'application/json');$('#s10Clean').onclick=()=>{studio().events=studio().events.filter(e=>A.project.scenes.some(s=>s.id===e.sceneId));toast('Referências verificadas');validateProject()};
+ body.innerHTML=section('Visualização',`<label class="s10-check"><input id="s10Hit" type="checkbox" ${d.hitboxes?'checked':''}> Mostrar hitboxes</label><label class="s10-check"><input id="s10Chunk" type="checkbox" ${d.chunkBounds?'checked':''}> Limites de chunks</label><label class="s10-check"><input id="s10Trig" type="checkbox" ${d.triggers?'checked':''}> Triggers</label><label class="s10-check"><input id="s10Profiler" type="checkbox" ${d.profiler?'checked':''}> Profiler no jogo</label>`)+section('Cena atual',`<div class="s10-metrics"><div><b>${ents.length}</b><small>entidades</small></div><div><b>${(A.scene().layers?Object.keys(A.scene().layers).length:1)}</b><small>camadas</small></div><div><b>${studio().events.filter(e=>e.sceneId===A.scene().id).length}</b><small>eventos</small></div><div><b>${studio().assets.length}</b><small>assets</small></div></div>`)+section('Validação',`<button id="s10Validate" class="s10-primary">✓ Validar projeto</button><div id="s10Validation" class="s10-validation"></div>`)+section('Ferramentas',`<button id="s10ExportStudio">Exportar Studio Data</button> <button id="s10Clean">Limpar referências quebradas</button>`);
+ $('#s10Hit').onchange=e=>{d.hitboxes=e.target.checked;updateOverlay()};$('#s10Chunk').onchange=e=>{d.chunkBounds=e.target.checked;updateOverlay()};$('#s10Trig').onchange=e=>{d.triggers=e.target.checked;updateOverlay()};$('#s10Profiler').onchange=e=>{d.profiler=e.target.checked};$('#s10Validate').onclick=validateProject;$('#s10ExportStudio').onclick=()=>A.downloadFile('studio-data.json',JSON.stringify(studio(),null,2),'application/json');$('#s10Clean').onclick=()=>{studio().events=studio().events.filter(e=>A.project.scenes.some(s=>s.id===e.sceneId));toast('Referências verificadas');validateProject()};
 }
 function validateProject(){const p=A.project,issues=[];if(!p.name?.trim())issues.push('Projeto sem nome');if(!p.scenes?.length)issues.push('Nenhuma cena');p.scenes?.forEach(s=>{if(!s.entities?.some(e=>e.type==='player'))issues.push(`${s.name}: sem Player`);const ids=(s.entities||[]).map(e=>e.id);if(new Set(ids).size!==ids.length)issues.push(`${s.name}: IDs duplicados`)});studio().events.forEach(e=>{if(!p.scenes.some(s=>s.id===e.sceneId))issues.push('Evento aponta para cena inexistente')});const el=$('#s10Validation');el.innerHTML=issues.length?issues.map(x=>`<div class="bad">⚠ ${x}</div>`).join(''):'<div class="good">✓ Estrutura principal válida</div>';}
 
 function buildOverlay(){const wrap=$('.canvas-wrap');if(!wrap)return;wrap.style.position='relative';const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.id='s10DebugOverlay';svg.setAttribute('viewBox','0 0 512 288');svg.setAttribute('preserveAspectRatio','none');wrap.appendChild(svg);const light=document.createElement('div');light.id='s10LightOverlay';wrap.appendChild(light);const particles=document.createElement('div');particles.id='s10Particles';wrap.appendChild(particles);updateOverlay()}
 function updateOverlay(){const svg=$('#s10DebugOverlay'),canvas=$('#editor');if(!svg||!canvas||!A)return;const r=canvas.getBoundingClientRect(),wr=canvas.parentElement.getBoundingClientRect();Object.assign(svg.style,{left:(r.left-wr.left)+'px',top:(r.top-wr.top)+'px',width:r.width+'px',height:r.height+'px'});svg.innerHTML='';const d=studio().debug;if(!d.hitboxes&&!d.chunkBounds)return;
  if(d.hitboxes){(A.scene().entities||[]).forEach(e=>{const isPlayer=e.type==='player',w=e.w||e.width||(isPlayer?14:16),h=e.h||e.height||(isPlayer?22:16),x=(e.x||0)-w/2,y=(e.y||0)-h/2;const q=document.createElementNS(svg.namespaceURI,'rect');q.setAttribute('x',x);q.setAttribute('y',y);q.setAttribute('width',w);q.setAttribute('height',h);q.setAttribute('class','hit '+e.type);svg.appendChild(q)})}
- if(d.chunkBounds){for(let x=0;x<512;x+=128){const l=document.createElementNS(svg.namespaceURI,'line');l.setAttribute('x1',x);l.setAttribute('x2',x);l.setAttribute('y1',0);l.setAttribute('y2',288);l.setAttribute('class','chunk');svg.appendChild(l)}for(let y=0;y<288;y+=144){const l=document.createElementNS(svg.namespaceURI,'line');l.setAttribute('x1',0);l.setAttribute('x2',512);l.setAttribute('y1',y);l.setAttribute('y2',y);l.setAttribute('class','chunk');svg.appendChild(l)}}
+ if(d.chunkBounds){const cw=Math.max(16,Math.min(512,+studio().world.chunkWidth||512)),ch=Math.max(16,Math.min(288,+studio().world.chunkHeight||288));for(let x=0;x<=512;x+=cw){const l=document.createElementNS(svg.namespaceURI,'line');l.setAttribute('x1',x);l.setAttribute('x2',x);l.setAttribute('y1',0);l.setAttribute('y2',288);l.setAttribute('class','chunk');svg.appendChild(l)}for(let y=0;y<=288;y+=ch){const l=document.createElementNS(svg.namespaceURI,'line');l.setAttribute('x1',0);l.setAttribute('x2',512);l.setAttribute('y1',y);l.setAttribute('y2',y);l.setAttribute('class','chunk');svg.appendChild(l)}}
 }
 function bindShortcuts(){document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='a'){e.preventDefault();activeTab='assets';document.body.classList.add('s10-dock-open');renderDock()}if(e.key==='F3'){e.preventDefault();studio().debug.hitboxes=!studio().debug.hitboxes;updateOverlay();toast('Hitboxes '+(studio().debug.hitboxes?'ON':'OFF'))}})}
 

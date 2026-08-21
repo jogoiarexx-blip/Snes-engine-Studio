@@ -26,9 +26,8 @@
       src.camera || '',
       src.animation || '',
       src.input || '',
-      src.renderCache || '',
-      src.loadWorker || '',
-      src.projectStore || ''
+      src.projectStore || '',
+      src.studioRuntime || ''
     ];
     // Runtime only for this genre
     if (type === 'platform') parts.push(src.platform || '');

@@ -1,14 +1,14 @@
 /**
- * SNES Engine Studio V7 — Saves versionados (editor + jogador + slots)
+ * SNES Engine Studio 1.0 — Saves versionados (editor + jogador + slots)
  */
 (function (global) {
   'use strict';
 
-  const EDITOR_KEY = 'snes_engine_studio_project_v7';
-  const RECENT_KEY = 'snes_v7_recent_projects';
-  const AUTOSAVE_KEY = 'snes_v7_autosave';
-  const SLOT_PREFIX = 'snes_v7_slot_';
-  const PLAYER_PREFIX = 'snes_v7_player_';
+  const EDITOR_KEY = 'snes_engine_studio_project_v10';
+  const RECENT_KEY = 'snes_v10_recent_projects';
+  const AUTOSAVE_KEY = 'snes_v10_autosave';
+  const SLOT_PREFIX = 'snes_v10_slot_';
+  const PLAYER_PREFIX = 'snes_v10_player_';
 
   function stripRuntimeState(project) {
     const p = JSON.parse(JSON.stringify(project));
@@ -23,15 +23,24 @@
   }
 
   function saveEditor(project) {
-    const clean = stripRuntimeState(project);
-    localStorage.setItem(EDITOR_KEY, JSON.stringify(clean));
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ t: Date.now(), project: clean }));
+    const clean = stripRuntimeState(project); clean.version='1.0'; clean.schemaVersion=10;
+    if (global.ProjectStore) global.ProjectStore.saveProject(clean).catch(function(){});
+    try {
+      localStorage.setItem(EDITOR_KEY, JSON.stringify(clean));
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ t: Date.now(), project: clean }));
+    } catch (e) {
+      // Large dataURL assets can exceed localStorage. IndexedDB remains the source of truth.
+      const light = JSON.parse(JSON.stringify(clean));
+      if (light.studio && light.studio.assets) light.studio.assets.forEach(function(a){ delete a.dataUrl; delete a.url; });
+      try { localStorage.setItem(EDITOR_KEY, JSON.stringify(light)); localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({t:Date.now(),project:light})); } catch (_) {}
+    }
     pushRecent(clean);
     return true;
   }
 
   function loadEditor() {
     const raw = localStorage.getItem(EDITOR_KEY)
+      || localStorage.getItem('snes_engine_studio_project_v7')
       || localStorage.getItem('snes_engine_studio_project_v6')
       || localStorage.getItem('snes_engine_studio_project_v3');
     if (!raw) return null;

@@ -1,3 +1,15 @@
+# SNES Engine Studio 1.0 Complete
+
+- Concluída a integração runtime dos recursos Studio 1.0.
+- Assets persistentes em IndexedDB + Data URL portátil.
+- Eventos/Triggers executáveis.
+- World chunks, colisão por chunk e streaming lógico.
+- Inspector por componentes, Hierarquia, IA, Boss e Luzes.
+- Sprites/Animações importados consumidos pelo runtime.
+- Project schema 10 / version 1.0.
+- Export pipeline regenerado a partir das fontes atuais.
+- Profiler e validação ampliados.
+
 # CHANGELOG
 
 ## 1.0 — Studio Workspace Update
@@ -53,3 +65,11 @@
 
 ## 0.6 / V7
 - Multi-runtime foundation
+
+## 1.0 Complete — Player opcional integrado
+- Adicionado spritesheet `assets/hero-blue-red-sheet.png` como Player opcional.
+- Asset embutido no Studio para persistir também em exportação HTML.
+- Preset **Herói Azul/Vermelho** no Inspector de entidades Player.
+- Animações incluídas: Idle, Corrida e Ataque.
+- Troca automática de animação no runtime conforme movimento/ataque.
+- Tamanho visual padrão 32×48, mantendo collider independente.

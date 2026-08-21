@@ -136,7 +136,7 @@ function enemyList(themeId){return ENEMY_VARIANTS[themeId]||ENEMY_VARIANTS.flore
 const clone=o=>JSON.parse(JSON.stringify(o));
 function blankMap(){return Array.from({length:ROWS},()=>Array(COLS).fill(0));}
 function sampleMap(){const m=blankMap();for(let x=0;x<COLS;x++){m[16][x]=2;m[17][x]=2}for(let x=2;x<8;x++)m[13][x]=1;for(let x=11;x<17;x++)m[11][x]=1;for(let x=21;x<27;x++)m[14][x]=1;for(let x=28;x<31;x++)m[10][x]=1;return m}
-function defaultProject(){const m=sampleMap();return {version:'0.9',schemaVersion:9,gameType:'platform',name:'Meu Jogo',settings:{type:'platform',width:512,height:288,tileSize:16},scenes:[{id:'scene1',name:'Fase 1',themeId:'floresta',map:m,layers:{background:blankMap(),ground:m.map(r=>r.slice()),foreground:blankMap()},entities:[{id:'player',type:'player',name:'Player',x:32,y:240,hp:3,speed:120,jump:300},{id:'slime1',type:'enemy',name:'Lobo',x:220,y:220,hp:1,speed:35},{id:'coin1',type:'item',name:'Moeda',x:320,y:180,hp:1},{id:'obj1',type:'object',name:'Pedra',sub:'pedra_obj',x:120,y:216}]}],currentScene:'scene1',world:{nodes:{},start:'scene1'}}}
+function defaultProject(){const m=sampleMap();return {version:'1.0',schemaVersion:10,gameType:'platform',name:'Meu Jogo',settings:{type:'platform',width:512,height:288,tileSize:16},scenes:[{id:'scene1',name:'Fase 1',themeId:'floresta',map:m,layers:{background:blankMap(),ground:m.map(r=>r.slice()),foreground:blankMap()},entities:[{id:'player',type:'player',name:'Player',x:32,y:240,hp:3,speed:120,jump:300},{id:'slime1',type:'enemy',name:'Lobo',x:220,y:220,hp:1,speed:35},{id:'coin1',type:'item',name:'Moeda',x:320,y:180,hp:1},{id:'obj1',type:'object',name:'Pedra',sub:'pedra_obj',x:120,y:216}]}],currentScene:'scene1',world:{nodes:{},start:'scene1'}}}
 
 function migrateProject(p){
   if(!p||typeof p!=='object')return defaultProject();
@@ -161,6 +161,7 @@ function migrateProject(p){
   if(!p.currentScene)p.currentScene=p.scenes[0].id;
   if(!p.world)p.world={nodes:{},start:p.currentScene};
   if(p.gameType==='kart-racing'&&!p.kartTrack&&window.KartTrack)p.kartTrack=window.KartTrack.generateDemoTrack();
+  p.version='1.0';p.schemaVersion=10;p.studio=p.studio||{};p.studio.version='1.0';
   return p;
 }
 
@@ -261,7 +262,7 @@ function redo(){if(!future.length)return;history.push(clone(project));project=fu
 $('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('clearBtn').onclick=()=>{if(confirm('Limpar a camada de terreno da cena?')){pushHistory();const s=scene();const m=blankMap();if(s.layers){s.layers.ground=m;s.map=m}else s.map=m;drawGrid()}};
 $('newBtn').onclick=()=>{if(confirm('Criar novo projeto?')){project=defaultProject();history=[];future=[];renderAll();toast('Novo projeto criado')}};
 $('saveBtn').onclick=()=>{localStorage.setItem(KEY,JSON.stringify(project));$('dirty').textContent='✓';$('dirty').style.color='#62d38b';toast('Projeto salvo no navegador')};
-$('loadBtn').onclick=()=>{const raw=localStorage.getItem(KEY)||localStorage.getItem('snes_engine_studio_project_v3')||localStorage.getItem('snes_engine_studio_project_v2');if(!raw)return toast('Nenhum projeto salvo');try{project=migrateProject(JSON.parse(raw));renderAll();toast('Projeto carregado e migrado para 0.9')}catch(e){toast('Arquivo inválido')}};
+$('loadBtn').onclick=()=>{const raw=localStorage.getItem(KEY)||localStorage.getItem('snes_engine_studio_project_v3')||localStorage.getItem('snes_engine_studio_project_v2');if(!raw)return toast('Nenhum projeto salvo');try{project=migrateProject(JSON.parse(raw));renderAll();toast('Projeto carregado e migrado para 1.0')}catch(e){toast('Arquivo inválido')}};
 function downloadFile(name,data,type){const blob=new Blob([data],{type:type||'application/octet-stream'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 $('exportBtn').onclick=()=>{const html=buildExport();downloadFile((project.name||'meu-jogo').replace(/[^a-z0-9-_]+/gi,'_')+'.html',html,'text/html');toast('Jogo HTML exportado')};
 $('exportSnesBtn').onclick=()=>exportSnesBundle();

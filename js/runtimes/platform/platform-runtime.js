@@ -157,7 +157,7 @@
         // climb without normal gravity
         p.x += p.vx * dt;
         p.y += p.vy * dt;
-        p.x = Math.max(0, Math.min(W - p.w, p.x));
+        p.x = Math.max(0, Math.min(((rt.__studio&&rt.__studio.world.w)||W) - p.w, p.x));
         p.y = Math.max(onLadder.y - 4, Math.min(onLadder.y + (onLadder.h || 64) - p.h, p.y));
         if (input.pressed('jump')) {
           p.vy = -p.jump * 0.7;
@@ -196,7 +196,7 @@
         rt.shots.push({ x: p.x + (dir > 0 ? p.w : -6), y: p.y + 6, vx: 280 * dir, life: 0.55, damage: 1 });
         p.attackUntil = now + 180;
       }
-      if (p.y > H + 20 || p.hp <= 0) {
+      if (p.y > (((rt.__studio&&rt.__studio.world.h)||H) + 80) || p.hp <= 0) {
         p.hp = 0;
         const cp = p.checkpoint;
         if (cp && cp.sceneId === rt.sceneId) {
