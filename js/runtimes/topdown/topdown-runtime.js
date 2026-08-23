@@ -295,6 +295,7 @@
   }
 
   function drawTileAt(ctx, tile, x, y, size) {
+    if (globalThis.SNESBuiltinTiles?.draw(ctx, tile, x, y, size)) return;
     if (!tile) return;
     const s = size / 16;
     ctx.fillStyle = tile.color;
@@ -344,8 +345,9 @@
     }
 
     const p = rt.player;
+    const customPlayer = !!(rt.scene && rt.scene.entities && rt.scene.entities.find(e => e.type === 'player' && e.spriteAsset));
     const now = performance.now();
-    if (!(now < p.invUntil && Math.floor(now / 80) % 2 === 0)) {
+    if (!customPlayer && !(now < p.invUntil && Math.floor(now / 80) % 2 === 0)) {
       if (global.SNESAnim && p.anim) {
         const fr = p.anim.current();
         global.SNESAnim.drawSprite(ctx, global.SNESAnim.playerSheet(), fr, p.x + p.w / 2, p.y + p.h, {
@@ -361,10 +363,12 @@
       for (let x = 0; x < COLS; x++)
         if (L.foreground[y][x]) drawTileAt(ctx, tiles[L.foreground[y][x]] || tiles[0], x * T, y * T, T);
 
-    // HUD
-    ctx.fillStyle = '#0b0b12aa'; ctx.fillRect(6, 6, 180, 28);
-    ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
-    ctx.fillText('❤' + p.hp + '  🔑' + (p.keys || 0) + '  ' + p.score, 12, 24);
+    // HUD nativo (oculto quando Game Flow fornece UI externa)
+    if (!rt.__externalUi) {
+      ctx.fillStyle = '#0b0b12aa'; ctx.fillRect(6, 6, 180, 28);
+      ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
+      ctx.fillText('❤' + p.hp + '  🔑' + (p.keys || 0) + '  ' + p.score, 12, 24);
+    }
 
     if (rt.showInv) {
       ctx.fillStyle = '#0b0b12ee'; ctx.fillRect(W - 160, 40, 150, 120);
@@ -399,7 +403,7 @@
       }
     }
 
-    if (rt.gameOver) {
+    if (rt.gameOver && !rt.__externalUi) {
       ctx.fillStyle = '#000000bb'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#fff'; ctx.font = '20px monospace';
       ctx.fillText('GAME OVER', W / 2 - 55, H / 2);

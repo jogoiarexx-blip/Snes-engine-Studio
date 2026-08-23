@@ -193,9 +193,9 @@
       ];
     }
 
-    return {
-      schemaVersion: 7,
-      version: '7.0',
+    const project = {
+      schemaVersion: 10,
+      version: '1.0',
       gameType: type,
       name: 'Meu Jogo ' + tpl.title,
       settings: Object.assign({
@@ -225,6 +225,10 @@
       variables: {},
       kartTrack: kartTrack
     };
+    project.studio = project.studio || { version: '1.0', assets: [], prefabs: [], events: [], triggers: [], animations: [], bosses: [] };
+    if (window.SNESGameFlow && window.SNESGameFlow.defaults) window.SNESGameFlow.defaults(project);
+    if (window.ProjectStore && window.ProjectStore.restoreProject) return window.ProjectStore.restoreProject(project);
+    return project;
   }
 
   function openWizard(A) {

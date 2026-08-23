@@ -132,6 +132,7 @@
     data.studio.fx = Object.assign({ambient:1,particlePreset:'none',particleRate:18,lights:[]}, data.studio.fx || {});
     data.studio.world = Object.assign({logicalWidth:512,logicalHeight:288,chunkWidth:512,chunkHeight:288,streaming:false}, data.studio.world || {});
     data.studio.camera = Object.assign({mode:'follow',smooth:.15,lookAhead:28,deadZone:24,pixelPerfect:true,shake:true}, data.studio.camera || {});
+    if (global.SNESGameFlow && global.SNESGameFlow.defaults) global.SNESGameFlow.defaults(data);
     if (data.kartTrack) {
       const t = deserializeTrack(data.kartTrack);
       if (t) data.kartTrack = t;

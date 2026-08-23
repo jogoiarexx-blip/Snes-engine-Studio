@@ -359,7 +359,8 @@
       }});
     });
     const p = rt.player;
-    sprites.push({ y: p.y, draw: function () {
+    const customPlayer = !!(rt.scene && rt.scene.entities && rt.scene.entities.find(e => e.type === 'player' && e.spriteAsset));
+    if (!customPlayer) sprites.push({ y: p.y, draw: function () {
       ctx.fillStyle = '#0005';
       ctx.beginPath(); ctx.ellipse(p.x, p.y, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = (p.invUntil > performance.now() && Math.floor(performance.now() / 60) % 2) ? '#fff' : '#55d6a0';

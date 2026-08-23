@@ -49,7 +49,7 @@
 <div class="bottom">
   <span id="status">Pronto.</span>
   <span class="spacer"></span>
-  <span>SNES Engine Studio · 0.9 Multi-Genre · platform · topdown · shooter</span>
+  <span>SNES Engine Studio · 1.0 Production Complete · Cutscenes · UI · Tiles · Prefabs · Game Flow</span>
 </div>
 </main>
 <aside class="right" id="rightPanel"></aside>
@@ -57,6 +57,7 @@
 <div id="modal" class="modal hidden"><div><div id="modalBody"></div><div style="display:flex;justify-content:flex-end;gap:7px;margin-top:10px"><button id="modalClose">Fechar</button></div></div></div>
 
 <!-- Engine core -->
+<script src="js/builtin-tiles-data.js"></script>
 <script src="js/engine/asset-manager.js"></script>
 <script src="js/engine/audio-manager.js"></script>
 <script src="js/engine/texture-atlas.js"></script>
@@ -83,8 +84,12 @@
 <script src="js/storage/asset-database.js"></script>
 <script src="js/storage/project-store.js"></script>
 <script src="js/genres/kart-racing/track-editor.js"></script>
+<script src="js/engine/event-bus.js"></script>
+<script src="js/engine/runtime-session.js"></script>
+<script src="js/engine/entity-components.js"></script>
 <script src="js/engine/studio-runtime.js"></script>
 <script src="js/engine/engine.js"></script>
+<script src="js/game/game-flow.js"></script>
 <script src="js/export/export-sources.js"></script>
 <!-- Legacy runtime still available for compatibility -->
 <script src="js/runtime/runtime.js"></script>
@@ -114,5 +119,8 @@
 <script src="js/hero-player-embed.js"></script>
 <script src="js/editor/studio-v10.js"></script>
 <script src="js/editor/studio-v10-complete.js"></script>
+<script src="js/editor/game-flow-editor.js"></script>
+<script src="js/editor/production-tools.js"></script>
+<script src="js/export/snes-rom-exporter.js"></script>
 </body>
 </html>

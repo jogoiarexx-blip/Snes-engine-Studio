@@ -288,6 +288,7 @@
   }
 
   function drawTileAt(ctx, tile, x, y, size) {
+    if (globalThis.SNESBuiltinTiles?.draw(ctx, tile, x, y, size)) return;
     if (!tile) return;
     ctx.fillStyle = tile.color;
     ctx.fillRect(x, y, size, size);
@@ -352,24 +353,27 @@
 
     // Player ship
     const p = rt.player;
+    const customPlayer = !!(rt.scene && rt.scene.entities && rt.scene.entities.find(e => e.type === 'player' && e.spriteAsset));
     const now = performance.now();
-    if (!(now < p.invUntil && Math.floor(now / 60) % 2 === 0)) {
+    if (!customPlayer && !(now < p.invUntil && Math.floor(now / 60) % 2 === 0)) {
       px(ctx, p.x, p.y + 2, 14, 8, '#55d6a0');
       px(ctx, p.x + 10, p.y, 8, 12, '#3dc18a');
       px(ctx, p.x + 4, p.y + 4, 4, 4, '#fff');
     }
 
-    // HUD
-    ctx.fillStyle = '#0b0b12aa'; ctx.fillRect(6, 6, 200, 28);
-    ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
-    ctx.fillText('❤' + p.hp + '  💣' + p.bombs + '  ' + p.score + '  ' + (p.shotMode || ''), 12, 24);
+    // HUD nativo (oculto quando Game Flow fornece UI externa)
+    if (!rt.__externalUi) {
+      ctx.fillStyle = '#0b0b12aa'; ctx.fillRect(6, 6, 200, 28);
+      ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
+      ctx.fillText('❤' + p.hp + '  💣' + p.bombs + '  ' + p.score + '  ' + (p.shotMode || ''), 12, 24);
+    }
 
-    if (rt.gameOver) {
+    if (rt.gameOver && !rt.__externalUi) {
       ctx.fillStyle = '#000000bb'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#fff'; ctx.font = '20px monospace';
       ctx.fillText('GAME OVER', W / 2 - 55, H / 2);
     }
-    if (rt.won) {
+    if (rt.won && !rt.__externalUi) {
       ctx.fillStyle = '#000000bb'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#f7b32b'; ctx.font = '20px monospace';
       ctx.fillText('VOCÊ VENCEU!', W / 2 - 70, H / 2);

@@ -26,8 +26,12 @@
       src.camera || '',
       src.animation || '',
       src.input || '',
+      src.eventBus || '',
+      src.runtimeSession || '',
+      src.entityComponents || '',
       src.projectStore || '',
-      src.studioRuntime || ''
+      src.studioRuntime || '',
+      src.gameFlow || ''
     ];
     // Runtime only for this genre
     if (type === 'platform') parts.push(src.platform || '');
@@ -81,6 +85,9 @@ const THEMES=${JSON.stringify(themes).replace(/</g, '\\u003c')};
 const ENEMY_VARIANTS=${JSON.stringify(enemyVariants).replace(/</g, '\\u003c')};
 const SK_CLIPS=${skClips};
 const SK_DATA=${JSON.stringify(skData)};
+if(PROJECT.studio&&PROJECT.studio.customTiles&&PROJECT.studio.customTiles.length)THEMES.custom_user={name:'Tiles Personalizados',tiles:PROJECT.studio.customTiles};
+const BUILTIN_SHEETS=${JSON.stringify(window.SNES_BUILTIN_TILE_SHEETS||{})};
+window.SNES_BUILTIN_TILE_SHEETS=BUILTIN_SHEETS;window.SNESBuiltinTiles=(function(){const cache={};function image(id){if(cache[id])return cache[id];const src=BUILTIN_SHEETS[id];if(!src)return null;const im=new Image();im.src=src;cache[id]=im;return im}function assetImage(id){const a=PROJECT.studio&&PROJECT.studio.assets&&PROJECT.studio.assets.find(x=>x.id===id);if(!a)return null;const k='asset:'+id;if(cache[k])return cache[k];const im=new Image();im.src=a.dataUrl||a.url||'';cache[k]=im;return im}function draw(ctx,tile,x,y,size){if(!tile||!tile.src)return false;const im=tile.assetId?assetImage(tile.assetId):image(tile.sheet);if(!im||!im.complete||!im.naturalWidth)return false;const r=tile.src;ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(im,r[0],r[1],r[2],r[3],x,y,size,size);ctx.restore();return true}return{image,draw}})();
 ${partsJoined}
 const skImg=new Image();if(SK_DATA)skImg.src=SK_DATA;
 const rates={idle:5,walk:9,run:12,attack:13,hurt:9,death:8};
@@ -95,13 +102,16 @@ else c.drawImage(skImg,f[0],f[1],f[2],f[3],dx,dy,dw,dh);c.restore()}
 if(window.SNESEngine)window.SNESEngine.autoRegister();
 const canvas=document.getElementById('game');
 const type=PROJECT.gameType||'platform';
-const handle=SNESEngine.play(PROJECT,canvas,THEMES,ENEMY_VARIANTS,skDraw);
 const pad=document.getElementById('pad');
 const buttons=${JSON.stringify(mobile)};
-if(handle&&handle.rt)SNESEngine.attachMobilePad(pad,handle.rt,buttons);
-const SAVE_KEY='snes_v7_player_'+type;
-try{const raw=localStorage.getItem(SAVE_KEY);if(raw&&handle){const sv=JSON.parse(raw);if(sv.score!=null)handle.rt.player.score=sv.score}}catch(_){}
-setInterval(function(){if(!handle)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify({score:handle.rt.player.score,hp:handle.rt.player.hp}))}catch(_){}},4000);
+if(window.SNESGameFlow){
+  SNESGameFlow.defaults(PROJECT);
+  const flow=SNESGameFlow.start(PROJECT,canvas,{themes:THEMES,enemyVariants:ENEMY_VARIANTS,skeletonDraw:skDraw});
+  const syncPad=setInterval(function(){const a=SNESEngine.getActive&&SNESEngine.getActive();if(a&&a.rt){SNESEngine.attachMobilePad(pad,a.rt,buttons);clearInterval(syncPad)}},120);
+}else{
+  const handle=SNESEngine.play(PROJECT,canvas,THEMES,ENEMY_VARIANTS,skDraw);
+  if(handle&&handle.rt)SNESEngine.attachMobilePad(pad,handle.rt,buttons);
+}
 })();
 <\/script></body></html>`;
   }

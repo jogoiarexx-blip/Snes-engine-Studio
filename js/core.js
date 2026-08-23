@@ -119,6 +119,31 @@ const THEMES={
   objects:[{id:'rocha_asteroide',name:'Rocha Asteroide',color:'#5a5254',shape:'box'},{id:'caixote',name:'Caixote',color:'#4a5068',shape:'box'},{id:'cristal_esp',name:'Cristal',color:'#b06aff',shape:'circle'},{id:'placa',name:'Placa',color:'#23283a',shape:'box'}]
  }
 };
+
+// ===== Studio 1.0: packs de tiles pixel-art embutidos =====
+THEMES.naturepack={emoji:'🌱',name:'Natureza Pixel',tiles:[
+ {name:'vazio',color:'#182327',solid:false,decos:[]},
+ {name:'grama',color:'#67b52d',solid:true,decos:[],sheet:'terrain_pack',src:[20,25,85,70]},
+ {name:'terra',color:'#81502c',solid:true,decos:[],sheet:'terrain_pack',src:[20,180,85,100]},
+ {name:'pedra antiga',color:'#545263',solid:true,decos:[],sheet:'terrain_pack',src:[20,305,85,105]},
+ {name:'areia',color:'#d29b38',solid:true,decos:[],sheet:'terrain_pack',src:[20,420,85,110]},
+ {name:'tijolos',color:'#4a4b54',solid:true,decos:[],sheet:'terrain_pack',src:[20,550,85,100]},
+ {name:'gelo',color:'#3d77a9',solid:true,decos:[],sheet:'terrain_pack',src:[20,680,85,105]},
+ {name:'água',color:'#2870a8',solid:false,decos:[],sheet:'terrain_pack',src:[20,800,85,105]},
+ {name:'caixa',color:'#8a5a2f',solid:true,decos:[],sheet:'terrain_pack',src:[1035,500,88,92]}
+],enemy:{name:'Slime',color:'#75bd45'},objects:[{id:'arvore',name:'Árvore',color:'#4c9b32',shape:'circle'},{id:'caixa',name:'Caixa',color:'#8a5a2f',shape:'box'},{id:'barril',name:'Barril',color:'#7a4b27',shape:'circle'},{id:'placa',name:'Placa',color:'#9b6e35',shape:'box'}]};
+THEMES.platformpack={emoji:'🧱',name:'Plataformas Pixel',tiles:[
+ {name:'vazio',color:'#152029',solid:false,decos:[]},
+ {name:'grama bloco',color:'#5fad2f',solid:true,decos:[],sheet:'platform_pack',src:[10,20,100,95]},
+ {name:'grama rocha',color:'#6e9c2d',solid:true,decos:[],sheet:'platform_pack',src:[120,20,100,95]},
+ {name:'rampa grama',color:'#5d9b31',solid:true,decos:[],sheet:'platform_pack',src:[225,220,105,92]},
+ {name:'ilha flutuante',color:'#70492a',solid:true,decos:[],sheet:'platform_pack',src:[700,20,125,115]},
+ {name:'pedra musgo',color:'#515461',solid:true,decos:[],sheet:'platform_pack',src:[485,435,135,105]},
+ {name:'areia bloco',color:'#c68d35',solid:true,decos:[],sheet:'platform_pack',src:[10,535,100,105]},
+ {name:'gelo bloco',color:'#3577aa',solid:true,decos:[],sheet:'platform_pack',src:[10,785,100,105]},
+ {name:'madeira',color:'#8a592b',solid:true,decos:[],sheet:'platform_pack',src:[940,300,130,100]}
+],enemy:{name:'Guardião',color:'#9b6a45'},objects:[{id:'ponte',name:'Ponte',color:'#8a592b',shape:'box'},{id:'caixa',name:'Caixa',color:'#8a5a2f',shape:'box'},{id:'barril',name:'Barril',color:'#7a4b27',shape:'circle'},{id:'placa',name:'Placa',color:'#9b6e35',shape:'box'}]};
+
 const THEME_IDS=Object.keys(THEMES);
 const ENEMY_VARIANTS={
  floresta:[{id:'lobo',name:'Lobo',color:'#9a6b55',accent:'#e8d7bb',style:'beast'},{id:'slime_folha',name:'Slime de Folha',color:'#45a858',accent:'#a8ef79',style:'slime'},{id:'javali',name:'Javali',color:'#75513f',accent:'#e3c596',style:'beast'}],
@@ -176,7 +201,7 @@ function setStatus(s){$('status').textContent=s}
 function toast(s){const d=document.createElement('div');d.className='toast';d.textContent=s;document.body.appendChild(d);setTimeout(()=>d.remove(),1800)}
 
 // ----- Desenho de tiles orientado a dados (funciona no editor E no jogo exportado) -----
-function drawTileAt(ctx2,tile,x,y,size){const s=size/16;ctx2.fillStyle=tile.color;ctx2.fillRect(x,y,size,size);(tile.decos||[]).forEach(d=>{if(d.outline){ctx2.strokeStyle=d.outline;ctx2.lineWidth=Math.max(1,s);ctx2.strokeRect(x+d.x*s+s/2,y+d.y*s+s/2,Math.max(0,d.w*s-s),Math.max(0,d.h*s-s))}else{ctx2.fillStyle=d.color;ctx2.fillRect(x+d.x*s,y+d.y*s,d.w*s,d.h*s)}})}
+function drawTileAt(ctx2,tile,x,y,size){if(window.SNESBuiltinTiles?.draw(ctx2,tile,x,y,size))return;const s=size/16;ctx2.fillStyle=tile.color;ctx2.fillRect(x,y,size,size);(tile.decos||[]).forEach(d=>{if(d.outline){ctx2.strokeStyle=d.outline;ctx2.lineWidth=Math.max(1,s);ctx2.strokeRect(x+d.x*s+s/2,y+d.y*s+s/2,Math.max(0,d.w*s-s),Math.max(0,d.h*s-s))}else{ctx2.fillStyle=d.color;ctx2.fillRect(x+d.x*s,y+d.y*s,d.w*s,d.h*s)}})}
 function px(c,x,y,w,h,color){c.fillStyle=color;c.fillRect(Math.round(x),Math.round(y),w,h)}
 function drawEnemySprite(c,e,theme){const v=enemyList(scene().themeId).find(q=>q.id===e.sub)||enemyList(scene().themeId)[0],x=e.x,y=e.y,b=v.color,a=v.accent;
  if(v.style==='slime'){px(c,x+2,y+5,10,7,b);px(c,x+4,y+3,6,3,b);px(c,x+3,y+11,3,2,a);px(c,x+9,y+11,3,2,a)}
@@ -186,6 +211,27 @@ function drawEnemySprite(c,e,theme){const v=enemyList(scene().themeId).find(q=>q
  else{px(c,x+2,y+4,10,7,b);px(c,x+9,y+1,4,5,b);px(c,x,y+9,4,3,a);px(c,x+3,y+11,3,3,b);px(c,x+9,y+11,3,3,b)}
  px(c,x+5,y+5,2,2,'#fff');px(c,x+9,y+5,2,2,'#18131e');
 }
+const __editorAssetImages=Object.create(null);
+function editorAssetImage(id){
+ const a=(project.studio&&project.studio.assets||[]).find(x=>x.id===id);
+ let src=a&&(a.dataUrl||a.url);
+ if(id==='builtin_hero_blue_red')src=(a&&(a.dataUrl||a.url))||window.__HERO_BLUE_RED_SHEET_DATAURL||'assets/hero-blue-red-sheet.png';
+ if(!src)return null;
+ let im=__editorAssetImages[id];
+ if(!im){im=new Image();im.onload=()=>{try{drawGrid()}catch(_){}};im.src=src;__editorAssetImages[id]=im;}
+ return im;
+}
+function drawCustomEntitySprite(c,e){
+ if(!e||!e.spriteAsset)return false;
+ const im=editorAssetImage(e.spriteAsset);if(!im||!im.complete||!im.naturalWidth)return false;
+ let sx=0,sy=0,sw=im.naturalWidth,sh=im.naturalHeight;
+ const anims=project.studio&&project.studio.animations||[];const a=anims.find(x=>x.id===e.animationId);
+ if(a&&a.frames&&a.frames.length&&Array.isArray(a.frames[0])&&a.frames[0].length>=4)[sx,sy,sw,sh]=a.frames[0];
+ if(e.spriteAsset==='builtin_hero_blue_red'&&(!a||!a.frames||!a.frames.length)){sx=13;sy=1;sw=119;sh=178;}
+ const dw=+e.spriteW||32,dh=+e.spriteH||32;const cw=+e.w||14,ch=+e.h||14;
+ const dx=(+e.x||0)-(dw-cw)/2,dy=(+e.y||0)+ch-dh;
+ c.save();c.imageSmoothingEnabled=false;c.drawImage(im,sx,sy,sw,sh,dx,dy,dw,dh);c.restore();return true;
+}
 function drawObjectSprite(c,e,theme){const o=(theme.objects||[]).find(q=>q.id===e.sub)||theme.objects[0];if(!o)return;const x=e.x,y=e.y,id=o.id;c.fillStyle=o.color;
  if(/fogueira|tocha/.test(id)){px(c,x+6,y+8,3,6,'#704126');px(c,x+3,y+11,10,2,'#704126');px(c,x+5,y+3,6,8,'#ef5b25');px(c,x+7,y+1,3,7,'#ffd45a')}
  else if(/cristal/.test(id)){px(c,x+6,y,4,14,o.color);px(c,x+3,y+5,3,8,'#d7b9ff');px(c,x+10,y+4,3,9,'#8b62cf')}
@@ -194,7 +240,7 @@ function drawObjectSprite(c,e,theme){const o=(theme.objects||[]).find(q=>q.id===
  else if(/boneco/.test(id)){px(c,x+4,y,7,7,'#fff');px(c,x+2,y+6,11,8,'#edf7ff');px(c,x+6,y+2,1,1,'#222');px(c,x+9,y+2,1,1,'#222')}
  else{px(c,x+3,y+2,9,11,o.color);px(c,x+1,y+7,13,6,o.color);px(c,x+4,y+4,3,2,'#ffffff55')}
 }
-function drawEntityAt(ctx2,e,theme){theme=theme||curTheme();if(e.type==='enemy'&&e.sprite==='skeleton'&&window.SkeletonSprite?.draw)window.SkeletonSprite.draw(ctx2,e);else if(e.type==='enemy')drawEnemySprite(ctx2,e,theme);else if(e.type==='item'){const it=e.item||e.sub||'coin';if(it==='heart'||it==='heart_piece'){px(ctx2,e.x+3,e.y+2,10,8,'#e74c3c');px(ctx2,e.x+5,e.y+4,6,6,'#c0392b')}else if(it==='key'||it==='boss_key'){px(ctx2,e.x+4,e.y+2,8,4,'#f1c40f');px(ctx2,e.x+10,e.y+6,3,8,'#f39c12')}else if(it==='gem'){px(ctx2,e.x+4,e.y+2,8,12,'#9b59b6')}else if(it==='potion_small'||it==='potion'||it==='potion_large'){px(ctx2,e.x+5,e.y+2,6,12,'#3498db');px(ctx2,e.x+6,e.y,4,3,'#ecf0f1')}else{px(ctx2,e.x+4,e.y+1,5,12,'#f7b32b');px(ctx2,e.x+2,e.y+4,9,6,'#ffe17a');px(ctx2,e.x+5,e.y+4,3,6,'#c88418')}}else if(e.type==='npc'){px(ctx2,e.x+3,e.y,7,5,'#ffd88a');px(ctx2,e.x+2,e.y+5,9,8,'#4aa0e0');px(ctx2,e.x+4,e.y+2,1,1,'#222');px(ctx2,e.x+8,e.y+2,1,1,'#222')}else if(e.type==='object')drawObjectSprite(ctx2,e,theme);else if(e.type==='player'){px(ctx2,e.x+3,e.y,7,5,'#ffd88a');px(ctx2,e.x+2,e.y+5,9,7,'#55d6a0');px(ctx2,e.x+2,e.y+12,3,2,'#31435c');px(ctx2,e.x+8,e.y+12,3,2,'#31435c')}else if(e.type==='checkpoint'){px(ctx2,e.x+6,e.y-8,3,20,'#27ae60');px(ctx2,e.x+9,e.y-8,10,8,'#2ecc71')}else if(e.type==='door'){px(ctx2,e.x,e.y,12,24,e.requires?'#f39c12':'#3498db');px(ctx2,e.x+3,e.y+10,3,3,'#fff')}else if(e.type==='ability'){px(ctx2,e.x+2,e.y+2,12,12,'#f1c40f');px(ctx2,e.x+5,e.y+5,6,6,'#fff')}else if(e.type==='save_crystal'){px(ctx2,e.x+2,e.y,12,16,'#74b9ff')}else{px(ctx2,e.x,e.y,14,14,'#888')}}
+function drawEntityAt(ctx2,e,theme){theme=theme||curTheme();if(e.spriteAsset&&drawCustomEntitySprite(ctx2,e))return;if(e.type==='enemy'&&e.sprite==='skeleton'&&window.SkeletonSprite?.draw)window.SkeletonSprite.draw(ctx2,e);else if(e.type==='enemy')drawEnemySprite(ctx2,e,theme);else if(e.type==='item'){const it=e.item||e.sub||'coin';if(it==='heart'||it==='heart_piece'){px(ctx2,e.x+3,e.y+2,10,8,'#e74c3c');px(ctx2,e.x+5,e.y+4,6,6,'#c0392b')}else if(it==='key'||it==='boss_key'){px(ctx2,e.x+4,e.y+2,8,4,'#f1c40f');px(ctx2,e.x+10,e.y+6,3,8,'#f39c12')}else if(it==='gem'){px(ctx2,e.x+4,e.y+2,8,12,'#9b59b6')}else if(it==='potion_small'||it==='potion'||it==='potion_large'){px(ctx2,e.x+5,e.y+2,6,12,'#3498db');px(ctx2,e.x+6,e.y,4,3,'#ecf0f1')}else{px(ctx2,e.x+4,e.y+1,5,12,'#f7b32b');px(ctx2,e.x+2,e.y+4,9,6,'#ffe17a');px(ctx2,e.x+5,e.y+4,3,6,'#c88418')}}else if(e.type==='npc'){px(ctx2,e.x+3,e.y,7,5,'#ffd88a');px(ctx2,e.x+2,e.y+5,9,8,'#4aa0e0');px(ctx2,e.x+4,e.y+2,1,1,'#222');px(ctx2,e.x+8,e.y+2,1,1,'#222')}else if(e.type==='object')drawObjectSprite(ctx2,e,theme);else if(e.type==='player'){px(ctx2,e.x+3,e.y,7,5,'#ffd88a');px(ctx2,e.x+2,e.y+5,9,7,'#55d6a0');px(ctx2,e.x+2,e.y+12,3,2,'#31435c');px(ctx2,e.x+8,e.y+12,3,2,'#31435c')}else if(e.type==='checkpoint'){px(ctx2,e.x+6,e.y-8,3,20,'#27ae60');px(ctx2,e.x+9,e.y-8,10,8,'#2ecc71')}else if(e.type==='door'){px(ctx2,e.x,e.y,12,24,e.requires?'#f39c12':'#3498db');px(ctx2,e.x+3,e.y+10,3,3,'#fff')}else if(e.type==='ability'){px(ctx2,e.x+2,e.y+2,12,12,'#f1c40f');px(ctx2,e.x+5,e.y+5,6,6,'#fff')}else if(e.type==='save_crystal'){px(ctx2,e.x+2,e.y,12,16,'#74b9ff')}else{px(ctx2,e.x,e.y,14,14,'#888')}}
 function drawGrid(){const s=scene();const tiles=curTiles();ctx.clearRect(0,0,W,H);for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)drawTileAt(ctx,tiles[s.map[y][x]]||tiles[0],x*T,y*T,T);ctx.strokeStyle='#ffffff16';for(let x=0;x<=COLS;x++){ctx.beginPath();ctx.moveTo(x*T,0);ctx.lineTo(x*T,H);ctx.stroke()}for(let y=0;y<=ROWS;y++){ctx.beginPath();ctx.moveTo(0,y*T);ctx.lineTo(W,y*T);ctx.stroke()}if(!playing){const theme=curTheme();s.entities.forEach(e=>{drawEntityAt(ctx,e,theme);if(e.id===selectedEntity){ctx.strokeStyle='#f7b32b';ctx.lineWidth=2;ctx.setLineDash([3,2]);ctx.strokeRect(e.x-3,e.y-3,20,20);ctx.setLineDash([])}})}if(view==='map'&&!playing){const r=canvas.getBoundingClientRect();const mx=(mouse.x-r.left)*W/r.width,my=(mouse.y-r.top)*H/r.height,gx=Math.floor(mx/T),gy=Math.floor(my/T);if(gx>=0&&gx<COLS&&gy>=0&&gy<ROWS){ctx.strokeStyle='#f7b32b';ctx.lineWidth=2;ctx.strokeRect(gx*T+1,gy*T+1,T-2,T-2)}}}
 let mouse={x:0,y:0,down:false};canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;if(mouse.down)paint()});canvas.addEventListener('mousedown',e=>{mouse.down=true;paint()});window.addEventListener('mouseup',()=>mouse.down=false);canvas.addEventListener('contextmenu',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();const gx=Math.floor((e.clientX-r.left)*W/r.width/T),gy=Math.floor((e.clientY-r.top)*H/r.height/T);if(gx>=0&&gy>=0&&gx<COLS&&gy<ROWS){pushHistory();scene().map[gy][gx]=0;drawGrid()}});
 function paint(){if(playing||view!=='map'||window.SNESStudio&&window.SNESStudio.placeMode)return;const r=canvas.getBoundingClientRect();const gx=Math.floor((mouse.x-r.left)*W/r.width/T),gy=Math.floor((mouse.y-r.top)*H/r.height/T);if(gx>=0&&gy>=0&&gx<COLS&&gy<ROWS&&scene().map[gy][gx]!==selectedTile){if(!paint.last||paint.last.x!==gx||paint.last.y!==gy){if(!paint.stroke){pushHistory();paint.stroke=true}scene().map[gy][gx]=selectedTile;paint.last={x:gx,y:gy};drawGrid()}}}
@@ -203,11 +249,16 @@ window.addEventListener('mouseup',()=>{paint.stroke=false;paint.last=null});
 function renderRight(){const p=$('rightPanel');
 if(view==='map'){
  const tiles=curTiles();
- p.innerHTML='<div class="card"><h3>PALETA DE TILES — '+curTheme().emoji+' '+curTheme().name+'</h3><div class="grid" id="tiles"></div></div><div class="card"><h3>MAPA</h3><div class="row"><label>Largura</label><span>'+COLS+'</span></div><div class="row"><label>Altura</label><span>'+ROWS+'</span></div><div class="row"><label>Tile</label><span>16×16</span></div></div>';
+ const themeOptions=THEME_IDS.map(id=>'<option value="'+id+'" '+(scene().themeId===id?'selected':'')+'>'+THEMES[id].emoji+' '+THEMES[id].name+'</option>').join('');
+ p.innerHTML='<div class="card"><h3>PALETA DE TILES</h3><div class="row"><label>Tileset</label><select id="mapThemeSelect">'+themeOptions+'</select></div><p class="badge">Escolha o tileset e clique no tile abaixo. Depois pinte diretamente no mapa.</p><div class="grid" id="tiles"></div></div><div class="card"><h3>MAPA</h3><div class="row"><label>Largura</label><span>'+COLS+'</span></div><div class="row"><label>Altura</label><span>'+ROWS+'</span></div><div class="row"><label>Tile</label><span>16×16</span></div></div>';
+ $('mapThemeSelect').onchange=e=>{if(e.target.value!==scene().themeId){pushHistory();scene().themeId=e.target.value;selectedTile=1;renderAll();toast('Tileset: '+curTheme().name)}};
  const g=$('tiles');
  tiles.forEach((tile,i)=>{const b=document.createElement('button');b.className='tile '+(i===selectedTile?'selected':'');const c=document.createElement('canvas');c.width=c.height=32;b.appendChild(c);const tc=c.getContext('2d');tc.imageSmoothingEnabled=false;drawTileAt(tc,tile,0,0,32);tc.fillStyle='#00000088';tc.fillRect(0,22,32,10);tc.fillStyle='#fff';tc.font='8px monospace';tc.fillText(i+' '+tile.name.slice(0,7),2,29);b.title=tile.name;b.onclick=()=>{selectedTile=i;renderRight()};g.appendChild(b)});
 }else if(view==='entities'){
- p.innerHTML='<div class="card"><h3>ENTIDADES</h3><button id="addPlayer">＋ Player</button> <button id="addEnemy">＋ Inimigo</button> <button id="addItem">＋ Item</button> <button id="addNpc">＋ NPC</button> <button id="addObject">＋ Objeto</button></div><div id="entitiesList"></div>';
+ const playerEnt=scene().entities.find(e=>e.type==='player');const studioAssets=(project.studio&&project.studio.assets||[]).filter(a=>a.kind==='image');
+ const playerOptions=['<option value="default">Player padrão</option>','<option value="builtin_hero_blue_red" '+(playerEnt&&playerEnt.spriteAsset==='builtin_hero_blue_red'?'selected':'')+'>Herói Azul/Vermelho</option>'].concat(studioAssets.filter(a=>a.id!=='builtin_hero_blue_red').map(a=>'<option value="'+a.id+'" '+(playerEnt&&playerEnt.spriteAsset===a.id?'selected':'')+'>'+esc(a.name)+'</option>')).join('');
+ p.innerHTML='<div class="card"><h3>ENTIDADES</h3><button id="addPlayer">＋ Player</button> <button id="addEnemy">＋ Inimigo</button> <button id="addItem">＋ Item</button> <button id="addNpc">＋ NPC</button> <button id="addObject">＋ Objeto</button></div>'+(playerEnt?'<div class="card"><h3>PLAYER VISUAL</h3><div class="row"><label>Sprite</label><select id="quickPlayerVisual">'+playerOptions+'</select></div><button id="applyQuickPlayer">✓ Usar este Player</button><p class="badge">Você pode trocar o Player aqui sem abrir o Inspector avançado.</p></div>':'')+'<div id="entitiesList"></div>';
+ if(playerEnt){$('applyQuickPlayer').onclick=()=>{pushHistory();const v=$('quickPlayerVisual').value;if(v==='default'){playerEnt.spriteAsset=null;playerEnt.animationId=null;playerEnt.playerVisual='default';playerEnt.spriteW=16;playerEnt.spriteH=16;}else if(v==='builtin_hero_blue_red'){playerEnt.spriteAsset=v;playerEnt.animationId='hero_blue_red_idle';playerEnt.playerVisual='hero_blue_red';playerEnt.spriteW=32;playerEnt.spriteH=48;playerEnt.w=playerEnt.w||14;playerEnt.h=playerEnt.h||22;}else{playerEnt.spriteAsset=v;playerEnt.animationId=null;playerEnt.playerVisual='custom';playerEnt.spriteW=playerEnt.spriteW||32;playerEnt.spriteH=playerEnt.spriteH||32;}playerEnt.components=playerEnt.components||{};playerEnt.components.sprite={assetId:playerEnt.spriteAsset,animationId:playerEnt.animationId,w:playerEnt.spriteW,h:playerEnt.spriteH};toast('Player visual aplicado');drawGrid();renderRight();mark();};}
  const list=$('entitiesList');
  const icons={player:'🧍',enemy:'👾',item:'🪙',npc:'💬',object:'📦'};
  scene().entities.forEach(e=>{const d=document.createElement('div');d.className='entity';d.innerHTML='<span class="dot">'+ (icons[e.type]||'') +'</span><div><b>'+e.name+'</b><small>'+e.type+' · X '+Math.round(e.x)+' Y '+Math.round(e.y)+'</small></div>';d.onclick=()=>{selectedEntity=e.id;editEntity(e)};list.appendChild(d)});
@@ -215,14 +266,14 @@ if(view==='map'){
 }else if(view==='tilesets'){
  const theme=curTheme();
  let h='<div class="card"><h3>TEMA DA CENA</h3><div class="themeGrid" id="themeGrid"></div></div>';
- h+='<div class="card"><h3>TILES — '+theme.emoji+' '+theme.name+'</h3><div class="grid" id="tilesPreview"></div></div>';
+ h+='<div class="card"><h3>TILES — '+theme.emoji+' '+theme.name+'</h3><p class="badge">Clique em qualquer tile abaixo para selecioná-lo e voltar ao mapa pronto para pintar.</p><div class="grid" id="tilesPreview"></div></div>';
  h+='<div class="card"><h3>SPRITES DE INIMIGOS</h3><div class="objGrid" id="enemyPreview"></div><p class="badge">3 variantes exclusivas deste bioma.</p></div>';
  h+='<div class="card"><h3>OBJETOS DISPONÍVEIS</h3><div class="objGrid" id="objPreview"></div><p class="badge">Use "＋ Objeto" na aba Entidades para posicioná-los no mapa.</p></div>';
  p.innerHTML=h;
  const tg=$('themeGrid');
  THEME_IDS.forEach(id=>{const t=THEMES[id];const b=document.createElement('button');b.className='themeBtn '+(id===scene().themeId?'active':'');b.innerHTML=t.emoji+'<span>'+t.name+'</span>';b.onclick=()=>{if(id!==scene().themeId){pushHistory();scene().themeId=id;selectedTile=Math.min(selectedTile,THEMES[id].tiles.length-1);renderAll()}};tg.appendChild(b)});
  const tp=$('tilesPreview');
- theme.tiles.forEach(tile=>{const wrap=document.createElement('div');wrap.className='tile';const c=document.createElement('canvas');c.width=c.height=32;wrap.appendChild(c);const tc=c.getContext('2d');tc.imageSmoothingEnabled=false;drawTileAt(tc,tile,0,0,32);wrap.title=tile.name;tp.appendChild(wrap)});
+ theme.tiles.forEach((tile,i)=>{const wrap=document.createElement('button');wrap.className='tile '+(i===selectedTile?'selected':'');const c=document.createElement('canvas');c.width=c.height=32;wrap.appendChild(c);const tc=c.getContext('2d');tc.imageSmoothingEnabled=false;drawTileAt(tc,tile,0,0,32);wrap.title='Usar '+tile.name+' no mapa';wrap.onclick=()=>{selectedTile=i;const mapBtn=document.querySelector('.nav[data-view="map"]');if(mapBtn)mapBtn.click();else{view='map';renderAll()}toast('Tile selecionado: '+tile.name)};tp.appendChild(wrap)});
  const ep=$('enemyPreview');enemyList(scene().themeId).forEach(v=>{const wrap=document.createElement('div');wrap.className='objBtn';const c=document.createElement('canvas');c.width=c.height=32;c.style.width='32px';c.style.height='32px';const ec=c.getContext('2d');ec.imageSmoothingEnabled=false;const old=scene().themeId;drawEnemySprite(ec,{x:8,y:8,sub:v.id},theme);wrap.appendChild(c);const lbl=document.createElement('div');lbl.textContent=v.name;wrap.appendChild(lbl);ep.appendChild(wrap)});
  const op=$('objPreview');
  theme.objects.forEach(o=>{const wrap=document.createElement('div');wrap.className='objBtn';const c=document.createElement('canvas');c.width=c.height=32;c.style.width='32px';c.style.height='32px';const oc=c.getContext('2d');oc.imageSmoothingEnabled=false;oc.fillStyle=o.color;if(o.shape==='circle'){oc.beginPath();oc.arc(16,16,13,0,Math.PI*2);oc.fill()}else{oc.fillRect(3,3,26,26)}wrap.appendChild(c);const lbl=document.createElement('div');lbl.textContent=o.name;wrap.appendChild(lbl);op.appendChild(wrap)});
@@ -294,7 +345,7 @@ function stopPlay(){
   playing=false;
   renderAll();
 }
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&playing){e.preventDefault();stopPlay()}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&playing){if(window.SNESGameFlow&&window.SNESGameFlow.getActive&&window.SNESGameFlow.getActive())return;e.preventDefault();stopPlay()}});
 
 
 function snesAsm(){

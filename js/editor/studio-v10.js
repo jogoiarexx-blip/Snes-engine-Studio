@@ -115,9 +115,16 @@ async function importFiles(files){
  const s=studio(), list=[...files];
  for(const f of list){
   try{
-   const rec=window.SNESAssetDB?await window.SNESAssetDB.put(f):{id:uid('asset'),name:f.name,kind:f.type.startsWith('image')?'image':f.type.startsWith('audio')?'audio':'json',size:f.size,type:f.type,dataUrl:await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})};
-   const prev=s.assets.findIndex(a=>a.name===rec.name);const meta={id:rec.id,name:rec.name,kind:rec.kind,size:rec.size,type:rec.type,dataUrl:rec.dataUrl,placeholder:false,importedAt:Date.now()};
-   if(prev>=0)s.assets[prev]=meta;else s.assets.push(meta);
+   const prev=s.assets.findIndex(a=>a.name===f.name);
+   const previous=prev>=0?s.assets[prev]:null;
+   // Reimportar o mesmo arquivo deve substituir o conteúdo SEM trocar o ID.
+   // Entidades, animações, parallax e tiles guardam o assetId; trocar o ID quebrava tudo.
+   const keepId=previous&&previous.id&&!previous.builtin?previous.id:null;
+   const rec=window.SNESAssetDB?await window.SNESAssetDB.put(f,keepId||undefined):{id:keepId||uid('asset'),name:f.name,kind:f.type.startsWith('image')?'image':f.type.startsWith('audio')?'audio':'json',size:f.size,type:f.type,dataUrl:await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})};
+   const meta={id:rec.id,name:rec.name,kind:rec.kind,size:rec.size,type:rec.type,dataUrl:rec.dataUrl,placeholder:false,importedAt:Date.now(),builtin:false};
+   if(prev>=0){
+    if(previous.builtin){s.assets.push(meta)}else{s.assets[prev]=meta}
+   }else s.assets.push(meta);
   }catch(err){console.warn('[Studio1.0] asset import failed',err)}
  }
  toast(list.length+' asset(s) importado(s) e persistido(s)');drawAssets();mark('Assets atualizados');
@@ -126,7 +133,20 @@ function drawAssets(){
  const grid=$('#s10AssetGrid');if(!grid)return;const q=($('#s10AssetSearch')?.value||'').toLowerCase(),k=$('#s10AssetKind')?.value||'';
  const arr=studio().assets.filter(a=>(!k||a.kind===k)&&(!q||a.name.toLowerCase().includes(q)));
  grid.innerHTML=arr.length?arr.map(a=>`<div class="s10-asset" data-id="${a.id}"><div class="s10-thumb">${a.kind==='image'&&(a.dataUrl||a.url)?`<img src="${a.dataUrl||a.url}">`:a.kind==='audio'?'♫':'{}'}</div><b title="${a.name}">${a.name}</b><small>${a.kind} · ${Math.max(1,Math.round((a.size||0)/1024))} KB</small><button class="s10-del">×</button></div>`).join(''):'<div class="s10-empty">Nenhum asset ainda. Importe depois seus sprites e backgrounds.</div>';
- $$('.s10-del',grid).forEach(b=>b.onclick=e=>{const id=e.target.closest('.s10-asset').dataset.id;studio().assets=studio().assets.filter(a=>a.id!==id);if(window.SNESAssetDB)window.SNESAssetDB.remove(id);drawAssets();mark('Asset removido')});
+ $$('.s10-del',grid).forEach(b=>b.onclick=e=>{
+  const id=e.target.closest('.s10-asset').dataset.id, s=studio(), asset=s.assets.find(a=>a.id===id);
+  if(asset&&asset.builtin){toast('Assets internos da engine não podem ser removidos.');return}
+  const refs=[];
+  for(const sc of A.project.scenes||[])for(const ent of sc.entities||[])if(ent.spriteAsset===id||ent.components?.sprite?.assetId===id)refs.push(ent);
+  if(refs.length&&!confirm('Este asset é usado por '+refs.length+' entidade(s). Remover e voltar essas entidades para placeholder?'))return;
+  for(const ent of refs){if(ent.spriteAsset===id)ent.spriteAsset=null;if(ent.components?.sprite?.assetId===id)ent.components.sprite.assetId=null}
+  for(const an of s.animations||[])if(an.assetId===id)an.assetId=null;
+  for(const px of s.parallax||[])if(px.assetId===id)px.assetId=null;
+  if(A.project.game?.mainMenu?.background===id)A.project.game.mainMenu.background='';
+  s.customTiles=(s.customTiles||[]).filter(t=>t.assetId!==id);
+  if(A.THEMES?.custom_user)A.THEMES.custom_user.tiles=(A.THEMES.custom_user.tiles||[]).filter(t=>t.assetId!==id);
+  s.assets=s.assets.filter(a=>a.id!==id);if(window.SNESAssetDB)window.SNESAssetDB.remove(id);drawAssets();mark('Asset removido e referências limpas')
+ });
 }
 function downloadManifest(){const s=studio();const out={version:1,assets:s.assets.map(({url,...a})=>a),generatedAt:new Date().toISOString()};A.downloadFile('assets.json',JSON.stringify(out,null,2),'application/json');}
 
@@ -134,9 +154,9 @@ function renderPrefabs(body){
  const s=studio();body.innerHTML=section('Biblioteca de Prefabs',`<div id="s10PrefabGrid" class="s10-prefab-grid">${s.prefabs.map(p=>`<button data-id="${p.id}"><span>${p.icon||'🧩'}</span><b>${p.name}</b></button>`).join('')}</div><div class="s10-actions"><button id="s10PrefabFromSel">＋ Do selecionado</button><button id="s10PrefabJSON">Exportar JSON</button><button id="s10PrefabSync">Sincronizar instâncias</button></div>`)+section('Como usar','<small class="s10-note">Clique em um prefab para adicioná-lo no centro da cena. Depois ajuste posição e propriedades no inspetor normal.</small>');
  $$('#s10PrefabGrid button').forEach(b=>b.onclick=()=>placePrefab(b.dataset.id));$('#s10PrefabFromSel').onclick=saveSelectedAsPrefab;$('#s10PrefabJSON').onclick=()=>A.downloadFile('prefabs.json',JSON.stringify(s.prefabs,null,2),'application/json');$('#s10PrefabSync').onclick=syncPrefabs;
 }
-function placePrefab(id){const p=studio().prefabs.find(x=>x.id===id);if(!p)return;const e=Object.assign({id:uid('e'),x:256,y:144,prefabId:p.id},clone(p.entity));A.pushHistory();A.scene().entities=A.scene().entities||[];A.scene().entities.push(e);A.selectedEntity=e.id;A.renderAll();toast(p.name+' adicionado');}
+function placePrefab(id){const p=studio().prefabs.find(x=>x.id===id);if(!p)return;const e=Object.assign({id:uid('e'),x:256,y:144,prefabId:p.id,prefabOverrides:{}},clone(p.entity));A.pushHistory();A.scene().entities=A.scene().entities||[];A.scene().entities.push(e);A.selectedEntity=e.id;A.renderAll();toast(p.name+' adicionado');}
 
-function syncPrefabs(){const s=studio();let n=0;for(const sc of A.project.scenes||[])for(const e of sc.entities||[]){if(!e.prefabId)continue;const pf=s.prefabs.find(p=>p.id===e.prefabId);if(!pf)continue;const keep={id:e.id,x:e.x,y:e.y,prefabId:e.prefabId};Object.keys(e).forEach(k=>delete e[k]);Object.assign(e,clone(pf.entity),keep);n++;}mark('Prefabs sincronizados');toast(n+' instância(s) atualizada(s)');renderDock()}
+function syncPrefabs(){const s=studio();let n=0;for(const sc of A.project.scenes||[])for(const e of sc.entities||[]){if(!e.prefabId)continue;const pf=s.prefabs.find(p=>p.id===e.prefabId);if(!pf)continue;const keep={id:e.id,x:e.x,y:e.y,prefabId:e.prefabId,prefabOverrides:clone(e.prefabOverrides||{})};const merged=Object.assign({},clone(pf.entity),keep.prefabOverrides,keep);Object.keys(e).forEach(k=>delete e[k]);Object.assign(e,merged);n++;}mark('Prefabs sincronizados (overrides preservados)');toast(n+' instância(s) atualizada(s)');renderDock()}
 function saveSelectedAsPrefab(){const e=(A.scene().entities||[]).find(x=>x.id===A.selectedEntity);if(!e)return toast('Selecione uma entidade primeiro');const name=prompt('Nome do prefab:',e.name||e.type||'Prefab');if(!name)return;const cp=clone(e);delete cp.id;delete cp.x;delete cp.y;studio().prefabs.push({id:uid('pf'),name,icon:'🧩',entity:cp});renderDock();toast('Prefab criado');}
 
 function renderEvents(body){

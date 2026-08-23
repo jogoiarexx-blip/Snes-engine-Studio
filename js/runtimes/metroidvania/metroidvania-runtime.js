@@ -445,7 +445,8 @@
     });
     // player
     const p = rt.player;
-    if (!(p.invUntil > performance.now() && Math.floor(performance.now() / 80) % 2 === 0)) {
+    const customPlayer = !!(rt.scene && rt.scene.entities && rt.scene.entities.find(e => e.type === 'player' && e.spriteAsset));
+    if (!customPlayer && !(p.invUntil > performance.now() && Math.floor(performance.now() / 80) % 2 === 0)) {
       ctx.fillStyle = '#0004';
       ctx.beginPath(); ctx.ellipse(p.x + p.w/2, p.y + p.h, 7, 3, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = p.dashTimer > 0 ? '#a78bfa' : '#55d6a0';

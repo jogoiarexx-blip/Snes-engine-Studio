@@ -1,0 +1,16 @@
+[1/4] JavaScript syntax
+[2/4] Stability unit tests
+PASS EventBus emite e remove listeners
+PASS RuntimeSession não altera projeto original
+PASS Dificuldade hard escala inimigos
+PASS Project Wizard cria schema 10
+PASS Export bundle inclui EventBus/RuntimeSession/Components
+PASS GameFlow não usa polling setInterval para vitória
+PASS Production tools incluem Cutscene/UI/Tile Cutter/Prefab overrides
+PASS GameFlow executa timeline e tema visual
+PASS HTML export preserva custom tiles
+
+9 passed, 0 failed
+[3/4] Rebuild export sources
+[4/4] HTML boot smoke test
+ALL TESTS PASSED

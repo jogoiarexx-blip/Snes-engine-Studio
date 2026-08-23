@@ -33,6 +33,7 @@
   let last = 0;
   let playing = false;
   let onStop = null;
+  let playToken = 0;
 
   function play(project, canvas, themes, enemyVariants, skeletonDraw, hooks) {
     autoRegister();
@@ -46,11 +47,13 @@
     }
     const rt = RT.createState(project, project.currentScene);
     RT.start(rt, window);
-    active = { rt, RT, canvas, themes, enemyVariants, skeletonDraw };
+    const token = ++playToken;
+    active = { rt, RT, canvas, themes, enemyVariants, skeletonDraw, token };
     playing = true;
     last = 0;
     hooks = hooks || {};
     onStop = hooks.onStop || null;
+    let endState = '';
 
     // Mobile pad overlay for editor test
     let pad = document.getElementById('editorPad');
@@ -84,9 +87,20 @@
       if (sh && (sh.x || sh.y)) ctx.restore();
       if (Studio) Studio.afterDraw(ctx, rt);
       if (Studio) Studio.endFrame(rt);
-      if (rt.gameOver || rt.won) {
-        // keep drawing for a moment
-      }
+      if (hooks.onFrame) { try { hooks.onFrame(rt, dt, now); } catch (e) { console.error('[SNESEngine] onFrame', e); } }
+      if (global.SNESEvents) global.SNESEvents.emit('engine:frame', { rt: rt, token: token, dt: dt, now: now });
+      const nextEnd = rt.gameOver ? 'gameover' : rt.won ? 'won' : '';
+      if (nextEnd && nextEnd !== endState) {
+        endState = nextEnd;
+        const payload = { rt: rt, token: token, project: project };
+        if (nextEnd === 'gameover') {
+          if (hooks.onGameOver) { try { hooks.onGameOver(payload); } catch(e){ console.error(e); } }
+          if (global.SNESEvents) global.SNESEvents.emit('game:over', payload);
+        } else {
+          if (hooks.onWon) { try { hooks.onWon(payload); } catch(e){ console.error(e); } }
+          if (global.SNESEvents) global.SNESEvents.emit('game:won', payload);
+        }
+      } else if (!nextEnd) endState = '';
       raf = requestAnimationFrame(loop);
     }
     raf = requestAnimationFrame(loop);

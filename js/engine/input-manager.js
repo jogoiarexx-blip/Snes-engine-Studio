@@ -32,10 +32,16 @@
       return unbind;
     }
 
+    function mappedKey(name) {
+      const km = global.__SNES_KEYMAP;
+      if (!km || !km[name]) return false;
+      return km[name].some(function(k){ return !!keys[String(k).toLowerCase()]; });
+    }
+
     function axisX() {
       let v = 0;
-      if (keys.arrowleft || keys.a || touch.left) v -= 1;
-      if (keys.arrowright || keys.d || touch.right) v += 1;
+      if (mappedKey('left') || (!global.__SNES_KEYMAP && (keys.arrowleft || keys.a)) || touch.left) v -= 1;
+      if (mappedKey('right') || (!global.__SNES_KEYMAP && (keys.arrowright || keys.d)) || touch.right) v += 1;
       if (Math.abs(touch.stickX) > 0.2) v = touch.stickX;
       // gamepad
       try {
@@ -52,8 +58,8 @@
 
     function axisY() {
       let v = 0;
-      if (keys.arrowup || keys.w || touch.up) v -= 1;
-      if (keys.arrowdown || keys.s || touch.down) v += 1;
+      if (mappedKey('up') || (!global.__SNES_KEYMAP && (keys.arrowup || keys.w)) || touch.up) v -= 1;
+      if (mappedKey('down') || (!global.__SNES_KEYMAP && (keys.arrowdown || keys.s)) || touch.down) v += 1;
       if (Math.abs(touch.stickY) > 0.2) v = touch.stickY;
       try {
         const gp = navigator.getGamepads && navigator.getGamepads()[0];
