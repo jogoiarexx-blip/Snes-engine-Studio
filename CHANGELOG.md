@@ -143,3 +143,29 @@
 - Tile Cutter limita colunas/linhas ao tamanho real da imagem para impedir source rectangles inválidos.
 - Paleta customizada é ressincronizada ao trocar/carregar projeto.
 - Suíte de estabilidade ampliada para 12 verificações unitárias + smoke test de boot.
+
+## 1.0 Consolidation (2026-08-24)
+- Arquitetura canônica, preload corrigido, EntityWorld, state machine, storage, commands, dependency graph, animator, autotile, collision layers, logger/profiler, recovery e avanço SNES 4bpp.
+
+## 1.0 Integrated
+- TileMap chunked canônico integrado.
+- GameFlow ligado ao GameStateMachine e StorageHub.
+- EntityWorld ligado às entidades reais do runtime.
+- Components sincronizados nas bordas de frame.
+- AnimatorController ativo para entidades com controller e para o herói embutido.
+- AutoTile bitmask ligado ao editor.
+- CommandManager ligado ao Undo/Redo principal.
+- Câmera e parallax corrigidos no pipeline de gameplay.
+- Collision Layers integradas ao AABB quando aplicável.
+- Prefab spawn usa EntityWorld.
+- Corrigido `markDirty(s.layers...)` com `s` inexistente no editor V4.
+- 20 testes de estabilidade + 8 testes de integração passando.
+
+## 1.0 Final Integration
+- Components agora usam accessors vivos e são a fonte de verdade.
+- Corrigida prioridade AnimatorController > animação fixa do SpriteRenderer.
+- EntityWorld passou a agregar coleções específicas dos gêneros.
+- Storage de editor/slots/controles/recovery centralizado no SNESStorage.
+- CommandManager ganhou registro de mutações já aplicadas e agrupamento no fluxo legado.
+- DependencyGraph recursivo e Profiler por sistemas.
+- 26 testes de estabilidade + 11 de integração passando.

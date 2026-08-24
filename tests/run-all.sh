@@ -5,6 +5,7 @@ echo '[1/4] JavaScript syntax'
 while IFS= read -r -d '' f; do node --check "$f" >/dev/null; done < <(find "$ROOT/js" -name '*.js' -print0)
 echo '[2/4] Stability unit tests'
 node "$ROOT/tests/stability-tests.js"
+node "$ROOT/tests/integration-tests.js"
 echo '[3/4] Rebuild export sources'
 python "$ROOT/tools/build-export-sources.py" >/dev/null
 node --check "$ROOT/js/export/export-sources.js" >/dev/null
