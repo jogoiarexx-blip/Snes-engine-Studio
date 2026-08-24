@@ -186,17 +186,32 @@ function migrateProject(p){
   if(!p.currentScene)p.currentScene=p.scenes[0].id;
   if(!p.world)p.world={nodes:{},start:p.currentScene};
   if(p.gameType==='kart-racing'&&!p.kartTrack&&window.KartTrack)p.kartTrack=window.KartTrack.generateDemoTrack();
-  p.version='1.0';p.schemaVersion=10;p.studio=p.studio||{};p.studio.version='1.0';
+  p.version='1.0.0';p.schemaVersion=10;p.studio=p.studio||{};p.studio.version='1.0';
+  if(window.SNESTileMap)p.scenes.forEach(s=>window.SNESTileMap.normalizeScene(s));
+  if(window.SNESEntityComponents)p.scenes.forEach(s=>(s.entities||[]).forEach(e=>window.SNESEntityComponents.ensure(e)));
+  if(window.SNESProjectModel){const r=window.SNESProjectModel.migrate(p);p=r.project;}
   return p;
 }
 
-let project=migrateProject(defaultProject()),view='map',selectedTile=1,selectedEntity=null,playing=false,history=[],future=[];
+let project=migrateProject(defaultProject()),view='map',selectedTile=1,selectedEntity=null,playing=false,history=[],future=[],commandManager=null,pendingHistory=false;
+function getCommandManager(){if(!commandManager&&window.SNESCommands)commandManager=window.SNESCommands.create();return commandManager}
 const $=id=>document.getElementById(id);const scene=()=>project.scenes.find(s=>s.id===project.currentScene)||project.scenes[0];
 function curTheme(){const t=THEMES[scene().themeId];return t||THEMES.floresta}
 function curTiles(){return curTheme().tiles}
 const canvas=document.getElementById('editor'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
 function mark(){ $('dirty').textContent='●'; $('dirty').style.color='#f7b32b' }
-function pushHistory(){history.push(clone(project));if(history.length>30)history.shift();future=[];mark()}
+function pushHistory(){
+ const mgr=getCommandManager();
+ if(mgr){
+   // All legacy editor tools funnel through this transaction bridge. Multiple calls
+   // inside the same synchronous mutation are grouped into one undoable command.
+   if(!pendingHistory){
+     pendingHistory=true;const before=clone(project);
+     queueMicrotask(()=>{pendingHistory=false;const after=clone(project);if(JSON.stringify(before)===JSON.stringify(after))return;const cmd={name:'Editar projeto',execute(){project=clone(after);renderAll()},undo(){project=clone(before);renderAll()}};mgr.recordApplied?mgr.recordApplied(cmd):(mgr.undoStack.push(cmd),mgr.redoStack.length=0);});
+   }
+ }else{const before=clone(project);history.push(before);if(history.length>30)history.shift();future=[]}
+ mark();
+}
 function setStatus(s){$('status').textContent=s}
 function toast(s){const d=document.createElement('div');d.className='toast';d.textContent=s;document.body.appendChild(d);setTimeout(()=>d.remove(),1800)}
 
@@ -258,7 +273,7 @@ if(view==='map'){
  const playerEnt=scene().entities.find(e=>e.type==='player');const studioAssets=(project.studio&&project.studio.assets||[]).filter(a=>a.kind==='image');
  const playerOptions=['<option value="default">Player padrão</option>','<option value="builtin_hero_blue_red" '+(playerEnt&&playerEnt.spriteAsset==='builtin_hero_blue_red'?'selected':'')+'>Herói Azul/Vermelho</option>'].concat(studioAssets.filter(a=>a.id!=='builtin_hero_blue_red').map(a=>'<option value="'+a.id+'" '+(playerEnt&&playerEnt.spriteAsset===a.id?'selected':'')+'>'+esc(a.name)+'</option>')).join('');
  p.innerHTML='<div class="card"><h3>ENTIDADES</h3><button id="addPlayer">＋ Player</button> <button id="addEnemy">＋ Inimigo</button> <button id="addItem">＋ Item</button> <button id="addNpc">＋ NPC</button> <button id="addObject">＋ Objeto</button></div>'+(playerEnt?'<div class="card"><h3>PLAYER VISUAL</h3><div class="row"><label>Sprite</label><select id="quickPlayerVisual">'+playerOptions+'</select></div><button id="applyQuickPlayer">✓ Usar este Player</button><p class="badge">Você pode trocar o Player aqui sem abrir o Inspector avançado.</p></div>':'')+'<div id="entitiesList"></div>';
- if(playerEnt){$('applyQuickPlayer').onclick=()=>{pushHistory();const v=$('quickPlayerVisual').value;if(v==='default'){playerEnt.spriteAsset=null;playerEnt.animationId=null;playerEnt.playerVisual='default';playerEnt.spriteW=16;playerEnt.spriteH=16;}else if(v==='builtin_hero_blue_red'){playerEnt.spriteAsset=v;playerEnt.animationId='hero_blue_red_idle';playerEnt.playerVisual='hero_blue_red';playerEnt.spriteW=32;playerEnt.spriteH=48;playerEnt.w=playerEnt.w||14;playerEnt.h=playerEnt.h||22;}else{playerEnt.spriteAsset=v;playerEnt.animationId=null;playerEnt.playerVisual='custom';playerEnt.spriteW=playerEnt.spriteW||32;playerEnt.spriteH=playerEnt.spriteH||32;}playerEnt.components=playerEnt.components||{};playerEnt.components.sprite={assetId:playerEnt.spriteAsset,animationId:playerEnt.animationId,w:playerEnt.spriteW,h:playerEnt.spriteH};toast('Player visual aplicado');drawGrid();renderRight();mark();};}
+ if(playerEnt){$('applyQuickPlayer').onclick=()=>{pushHistory();const v=$('quickPlayerVisual').value;if(v==='default'){playerEnt.spriteAsset=null;playerEnt.animationId=null;playerEnt.playerVisual='default';playerEnt.spriteW=16;playerEnt.spriteH=16;}else if(v==='builtin_hero_blue_red'){playerEnt.spriteAsset=v;playerEnt.animationId='hero_blue_red_idle';playerEnt.playerVisual='hero_blue_red';playerEnt.spriteW=32;playerEnt.spriteH=48;playerEnt.w=playerEnt.w||14;playerEnt.h=playerEnt.h||22;}else{playerEnt.spriteAsset=v;playerEnt.animationId=null;playerEnt.playerVisual='custom';playerEnt.spriteW=playerEnt.spriteW||32;playerEnt.spriteH=playerEnt.spriteH||32;}playerEnt.components=playerEnt.components||{};playerEnt.components.spriteRenderer={assetId:playerEnt.spriteAsset,animationId:playerEnt.animationId,w:playerEnt.spriteW,h:playerEnt.spriteH,visible:true};delete playerEnt.components.sprite;toast('Player visual aplicado');drawGrid();renderRight();mark();};}
  const list=$('entitiesList');
  const icons={player:'🧍',enemy:'👾',item:'🪙',npc:'💬',object:'📦'};
  scene().entities.forEach(e=>{const d=document.createElement('div');d.className='entity';d.innerHTML='<span class="dot">'+ (icons[e.type]||'') +'</span><div><b>'+e.name+'</b><small>'+e.type+' · X '+Math.round(e.x)+' Y '+Math.round(e.y)+'</small></div>';d.onclick=()=>{selectedEntity=e.id;editEntity(e)};list.appendChild(d)});
@@ -308,12 +323,12 @@ else if(type==='object'){const o=theme.objects[0];e={...e,name:o.name,sub:o.id};
 scene().entities.push(e);selectedEntity=id;renderAll();editEntity(scene().entities.find(en=>en.id===id));}
 function renderSceneList(){const q=$('sceneList');q.innerHTML='';project.scenes.forEach(s=>{const b=document.createElement('button');b.className='scene-item '+(s.id===project.currentScene?'active':'');b.textContent=(THEMES[s.themeId]||THEMES.floresta).emoji+' '+s.name;b.onclick=()=>{project.currentScene=s.id;renderAll()};q.appendChild(b)})}
 function renderAll(){renderSceneList();renderRight();drawGrid();$('projectName').value=project.name;$('stopBtn').classList.toggle('hidden',!playing);$('playBtn').classList.toggle('hidden',playing);$('toolInfo').textContent='Mapa '+COLS+'×'+ROWS+' · 16px · Tema: '+curTheme().emoji+' '+curTheme().name}
-function undo(){if(!history.length)return;future.push(clone(project));project=history.pop();renderAll();toast('Desfeito')}
-function redo(){if(!future.length)return;history.push(clone(project));project=future.pop();renderAll();toast('Refeito')}
-$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;$('clearBtn').onclick=()=>{if(confirm('Limpar a camada de terreno da cena?')){pushHistory();const s=scene();const m=blankMap();if(s.layers){s.layers.ground=m;s.map=m}else s.map=m;drawGrid()}};
-$('newBtn').onclick=()=>{if(confirm('Criar novo projeto?')){project=defaultProject();history=[];future=[];renderAll();toast('Novo projeto criado')}};
-$('saveBtn').onclick=()=>{localStorage.setItem(KEY,JSON.stringify(project));$('dirty').textContent='✓';$('dirty').style.color='#62d38b';toast('Projeto salvo no navegador')};
-$('loadBtn').onclick=()=>{const raw=localStorage.getItem(KEY)||localStorage.getItem('snes_engine_studio_project_v3')||localStorage.getItem('snes_engine_studio_project_v2');if(!raw)return toast('Nenhum projeto salvo');try{project=migrateProject(JSON.parse(raw));renderAll();toast('Projeto carregado e migrado para 1.0')}catch(e){toast('Arquivo inválido')}};
+function undo(){const mgr=getCommandManager();if(mgr&&mgr.undoStack.length){mgr.undo();toast('Desfeito');return}if(!history.length)return;future.push(clone(project));project=history.pop();renderAll();toast('Desfeito')}
+function redo(){const mgr=getCommandManager();if(mgr&&mgr.redoStack.length){mgr.redo();toast('Refeito');return}if(!future.length)return;history.push(clone(project));project=future.pop();renderAll();toast('Refeito')}
+$('undoBtn').onclick=undo;$('redoBtn').onclick=redo;document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target?.tagName))return;const mod=e.ctrlKey||e.metaKey;if(mod&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();undo()}else if(mod&&(e.key.toLowerCase()==='y'||(e.shiftKey&&e.key.toLowerCase()==='z'))){e.preventDefault();redo()}});$('clearBtn').onclick=()=>{if(confirm('Limpar a camada de terreno da cena?')){pushHistory();const s=scene();const m=blankMap();if(s.layers){s.layers.ground=m;s.map=m}else s.map=m;drawGrid()}};
+$('newBtn').onclick=()=>{if(confirm('Criar novo projeto?')){project=migrateProject(defaultProject());history=[];future=[];getCommandManager()?.clear();renderAll();toast('Novo projeto criado')}};
+$('saveBtn').onclick=()=>{try{if(window.SNESSave)SNESSave.saveEditor(project);else if(window.SNESStorage?.legacy)SNESStorage.legacy.set(KEY,JSON.stringify(project));else localStorage.setItem(KEY,JSON.stringify(project));$('dirty').textContent='✓';$('dirty').style.color='#62d38b';toast('Projeto salvo no navegador')}catch(e){toast('Falha ao salvar')}};
+$('loadBtn').onclick=()=>{try{let data=window.SNESSave?SNESSave.loadEditor():null;if(!data){const st=window.SNESStorage?.legacy;const raw=st?(st.get(KEY)||st.get('snes_engine_studio_project_v3')||st.get('snes_engine_studio_project_v2')):(localStorage.getItem(KEY)||localStorage.getItem('snes_engine_studio_project_v3')||localStorage.getItem('snes_engine_studio_project_v2'));data=raw?JSON.parse(raw):null}if(!data)return toast('Nenhum projeto salvo');project=migrateProject(data);renderAll();toast('Projeto carregado e migrado para 1.0')}catch(e){toast('Arquivo inválido')}};
 function downloadFile(name,data,type){const blob=new Blob([data],{type:type||'application/octet-stream'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 $('exportBtn').onclick=()=>{const html=buildExport();downloadFile((project.name||'meu-jogo').replace(/[^a-z0-9-_]+/gi,'_')+'.html',html,'text/html');toast('Jogo HTML exportado')};
 $('exportSnesBtn').onclick=()=>exportSnesBundle();
@@ -460,4 +475,4 @@ function buildExport(){
  +'})();<\/script></body></html>';
 }
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-window.SNESStudio={get project(){return project},set project(v){project=migrateProject(v)},scene,curTheme,blankMap,pushHistory,renderAll,renderRight,drawGrid,drawEntityAt,toast,setStatus,downloadFile,buildExport,migrateProject,THEMES,ENEMY_VARIANTS,THEME_IDS,get selectedTile(){return selectedTile},set selectedTile(v){selectedTile=v},get selectedEntity(){return selectedEntity},set selectedEntity(v){selectedEntity=v},get view(){return view},set view(v){view=v},get playing(){return playing},get game(){return game},startPlay,stopPlay,_drawEntityAt:drawEntityAt,get gameType(){return project.gameType||'platform'}};renderAll();window.dispatchEvent(new CustomEvent("snesstudio:ready"));})();
+window.SNESStudio={get commandManager(){return getCommandManager()},get project(){return project},set project(v){project=migrateProject(v)},scene,curTheme,blankMap,pushHistory,renderAll,renderRight,drawGrid,drawEntityAt,toast,setStatus,downloadFile,buildExport,migrateProject,THEMES,ENEMY_VARIANTS,THEME_IDS,get selectedTile(){return selectedTile},set selectedTile(v){selectedTile=v},get selectedEntity(){return selectedEntity},set selectedEntity(v){selectedEntity=v},get view(){return view},set view(v){view=v},get playing(){return playing},get game(){return game},startPlay,stopPlay,_drawEntityAt:drawEntityAt,get gameType(){return project.gameType||'platform'}};renderAll();window.dispatchEvent(new CustomEvent("snesstudio:ready"));})();

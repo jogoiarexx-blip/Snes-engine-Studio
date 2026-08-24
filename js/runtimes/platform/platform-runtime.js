@@ -441,7 +441,7 @@
     const theme = themes[scene.themeId] || themes.floresta;
     theme._id = scene.themeId;
     const tiles = theme.tiles;
-    ctx.clearRect(0, 0, W, H);
+    if (!rt.__skipClear) ctx.clearRect(0, 0, W, H);
     if (global.SNESRender) global.SNESRender.setupCtx(ctx);
     for (let y = 0; y < ROWS; y++)
       for (let x = 0; x < COLS; x++)
@@ -481,7 +481,7 @@
       for (let x = 0; x < COLS; x++)
         if (L.foreground[y][x]) drawTileAt(ctx, tiles[L.foreground[y][x]] || tiles[0], x * T, y * T, T);
     // HUD nativo (oculto quando Game Flow fornece UI externa)
-    if (!rt.__externalUi) {
+    if (!(rt.__externalUi || rt.__cameraPipeline)) {
       ctx.fillStyle = '#0b0b12aa'; ctx.fillRect(6, 6, 170, 28);
       ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
       ctx.fillText('❤'.repeat(Math.max(0, Math.min(9, p.hp))) + '  ' + p.score, 12, 24);
@@ -491,7 +491,7 @@
       ctx.strokeStyle = '#f7b32b'; ctx.strokeRect(40, H - 60, W - 80, 48);
       ctx.fillStyle = '#fff'; ctx.fillText(rt.dialog.text.slice(0, 48), 52, H - 32);
     }
-    if (rt.gameOver && !rt.__externalUi) {
+    if (rt.gameOver && !(rt.__externalUi || rt.__cameraPipeline)) {
       ctx.fillStyle = '#000000bb'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#fff'; ctx.font = '20px monospace';
       ctx.fillText('GAME OVER', W / 2 - 55, H / 2);

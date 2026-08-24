@@ -301,7 +301,7 @@
     const theme = themes[scene.themeId] || themes.espaco || themes.floresta;
     const tiles = theme.tiles;
     const T = 16;
-    ctx.clearRect(0, 0, W, H);
+    if (!rt.__skipClear) ctx.clearRect(0, 0, W, H);
 
     // Parallax background via tile layer + scroll
     const ox = Math.floor(rt.scroll) % T;
@@ -362,18 +362,18 @@
     }
 
     // HUD nativo (oculto quando Game Flow fornece UI externa)
-    if (!rt.__externalUi) {
+    if (!(rt.__externalUi || rt.__cameraPipeline)) {
       ctx.fillStyle = '#0b0b12aa'; ctx.fillRect(6, 6, 200, 28);
       ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
       ctx.fillText('❤' + p.hp + '  💣' + p.bombs + '  ' + p.score + '  ' + (p.shotMode || ''), 12, 24);
     }
 
-    if (rt.gameOver && !rt.__externalUi) {
+    if (rt.gameOver && !(rt.__externalUi || rt.__cameraPipeline)) {
       ctx.fillStyle = '#000000bb'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#fff'; ctx.font = '20px monospace';
       ctx.fillText('GAME OVER', W / 2 - 55, H / 2);
     }
-    if (rt.won && !rt.__externalUi) {
+    if (rt.won && !(rt.__externalUi || rt.__cameraPipeline)) {
       ctx.fillStyle = '#000000bb'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#f7b32b'; ctx.font = '20px monospace';
       ctx.fillText('VOCÊ VENCEU!', W / 2 - 70, H / 2);

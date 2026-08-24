@@ -32,11 +32,11 @@ function defaults(project){
   return g;
 }
 function storageKey(project){return 'snes_gameflow_'+slug(project.id||project.name)}
-function loadAll(project){try{return JSON.parse(localStorage.getItem(storageKey(project))||'{"slots":{}}')}catch(_){return {slots:{}}}}
-function saveAll(project,data){try{localStorage.setItem(storageKey(project),JSON.stringify(data));return true}catch(_){return false}}
+function loadAll(project){const id=storageKey(project);if(globalThis.SNESStorage?.saves)return globalThis.SNESStorage.saves.get(id)||{slots:{}};try{return JSON.parse(localStorage.getItem(id)||'{"slots":{}}')}catch(_){return {slots:{}}}}
+function saveAll(project,data){const id=storageKey(project);if(globalThis.SNESStorage?.saves){globalThis.SNESStorage.saves.set(id,data);return true}try{localStorage.setItem(id,JSON.stringify(data));return true}catch(_){return false}}
 function prefKey(project){return storageKey(project)+'_preferences'}
-function loadPreferences(project){try{return JSON.parse(localStorage.getItem(prefKey(project))||'null')}catch(_){return null}}
-function savePreferencesFor(project){try{localStorage.setItem(prefKey(project),JSON.stringify({settings:project.game.settings,controls:project.game.controls}));return true}catch(_){return false}}
+function loadPreferences(project){const id=prefKey(project);if(globalThis.SNESStorage?.preferences)return globalThis.SNESStorage.preferences.get(id,null);try{return JSON.parse(localStorage.getItem(id)||'null')}catch(_){return null}}
+function savePreferencesFor(project){const id=prefKey(project),value={settings:project.game.settings,controls:project.game.controls};if(globalThis.SNESStorage?.preferences){globalThis.SNESStorage.preferences.set(id,value);return true}try{localStorage.setItem(id,JSON.stringify(value));return true}catch(_){return false}}
 function fmtTime(sec){sec=Math.max(0,sec|0);const h=(sec/3600)|0,m=((sec%3600)/60)|0,s=sec%60;return (h?String(h).padStart(2,'0')+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
 
 const CSS=`
@@ -52,13 +52,15 @@ function create(project,canvas,env){
   const session=global.SNESRuntimeSession?global.SNESRuntimeSession.create(project):{definition:project,project:clone(project)};
   project=session.project; defaults(project); injectStyle(); env=env||{};
   const state={project,definitionProject,session,canvas,env,screen:'boot',handle:null,slot:1,startedAt:0,elapsed:0,root:null,hud:null,paused:false,lastScene:null};
+  const machine=global.SNESGameStateMachine?global.SNESGameStateMachine.create(state):null;
+  if(machine){['boot','splash','menu','slots','gameplay','pause','options','controls','gameover','victory','cutscene','intro','ending','credits'].forEach(name=>machine.register(name,{enter(ctx){ctx.screen=name}}));state.machine=machine;}
   const root=document.createElement('div');root.className='sgf-root';root.style.display='none';document.body.appendChild(root);state.root=root;
   const hud=document.createElement('div');hud.className='sgf-hud';hud.style.display='none';document.body.appendChild(hud);state.hud=hud;
 
   function clear(){root.innerHTML='';root.style.display='none'}
   function panel(title,sub){clear();root.style.display='flex';const p=document.createElement('div');p.className='sgf-screen';if(title){const h=document.createElement('div');h.className='sgf-title';h.textContent=title;p.appendChild(h)}if(sub){const q=document.createElement('div');q.className='sgf-sub';q.textContent=sub;p.appendChild(q)}root.appendChild(p);return p}
   function menuBox(p){const m=document.createElement('div');m.className='sgf-menu';p.appendChild(m);return m}
-  function setScreen(x){state.screen=x}
+  function setScreen(x){state.screen=x;if(machine&&machine.name!==x)machine.change(x).catch?.(e=>global.SNESLogger?.error?.('gameflow','Falha ao trocar estado',e))}
   function assetUrl(id){const a=project.studio&&project.studio.assets&&project.studio.assets.find(x=>x.id===id);return a&&(a.dataUrl||a.url)||''}
   function applyTheme(){const u=project.game.ui||{};root.style.setProperty('--sgf-accent',u.accent||'#ffd45e');root.style.setProperty('--sgf-panel',u.panel||'#101526');root.style.setProperty('--sgf-text',u.text||'#fff');root.style.setProperty('--sgf-button',u.button||'#182541');hud.style.transform='scale('+(u.hudScale||1)+')';hud.style.transformOrigin='top left'}
   function saves(){return loadAll(project)}

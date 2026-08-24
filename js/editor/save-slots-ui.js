@@ -94,7 +94,7 @@
         if (e.shiftKey) {
           // load
           try {
-            const raw = localStorage.getItem('snes_v09_slot_' + n);
+            const raw = window.SNESStorage?.legacy?.get('snes_v09_slot_' + n) || localStorage.getItem('snes_v09_slot_' + n);
             if (!raw) return A.toast('Slot vazio');
             let data = JSON.parse(raw);
             if (Store) data = Store.restoreProject(data);
@@ -105,7 +105,7 @@
           } catch (err) { A.toast('Erro: ' + err.message); }
         } else {
           const data = Store ? Store.prepareProjectForSave(A.project) : A.project;
-          localStorage.setItem('snes_v09_slot_' + n, JSON.stringify(data));
+          if(window.SNESSave)SNESSave.saveSlot(n,data);else if(window.SNESStorage?.legacy)SNESStorage.legacy.set('snes_v09_slot_' + n,JSON.stringify(data));else localStorage.setItem('snes_v09_slot_' + n, JSON.stringify(data));
           A.toast('Slot ' + n + ' salvo');
         }
       };

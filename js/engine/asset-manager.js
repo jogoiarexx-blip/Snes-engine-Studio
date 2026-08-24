@@ -55,6 +55,8 @@
           const err = new Error('Asset failed: ' + id);
           (waiters[id] || []).forEach(function (w) { w.reject(err); });
           waiters[id] = null;
+          if(global.SNESLogger)global.SNESLogger.warn('asset','Falha ao carregar '+id,{paths:paths});
+          if(global.SNESEvents)global.SNESEvents.emit('asset:error',{id:id,paths:paths,error:err});
           if (opts.optional) resolve(null);
           else reject(err);
           return;
@@ -64,6 +66,7 @@
           cache[id] = { status: 'ok', value: img };
           (waiters[id] || []).forEach(function (w) { w.resolve(img); });
           waiters[id] = null;
+          if(global.SNESEvents)global.SNESEvents.emit('asset:loaded',{id:id,image:img});
           resolve(img);
         };
         img.onerror = function () { tryNext(); };

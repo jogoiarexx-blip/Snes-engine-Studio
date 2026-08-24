@@ -101,6 +101,7 @@
   }
 
   function prepareProjectForSave(project) {
+    if(global.SNESProjectModel) global.SNESProjectModel.ensureId(project);
     const p = JSON.parse(JSON.stringify(project, function (k, v) {
       if (v instanceof Uint8Array) return rleEncode(v);
       return v;
@@ -110,19 +111,20 @@
       p.kartTrack = serializeTrack(project.kartTrack);
     }
     p.schemaVersion = 10;
-    p.version = '1.0';
+    p.version = '1.0.0';
     p.studio = p.studio || {};
-    p.studio.version = '1.0';
+    p.studio.version = '1.0.0';
     return p;
   }
 
   function restoreProject(data) {
     if (!data || typeof data !== 'object') return null;
-    // V9 -> V10: preserve old projects and create the completed Studio schema.
+    if(global.SNESProjectModel) data=global.SNESProjectModel.migrate(data).project;
+    // Compatibility defaults after canonical migration.
     data.schemaVersion = 10;
-    data.version = '1.0';
+    data.version = '1.0.0';
     data.studio = data.studio || {};
-    data.studio.version = '1.0';
+    data.studio.version = '1.0.0';
     data.studio.assets = data.studio.assets || [];
     data.studio.prefabs = data.studio.prefabs || [];
     data.studio.events = data.studio.events || [];
@@ -187,7 +189,7 @@
 
   function saveProject(project) {
     const prepared = prepareProjectForSave(project);
-    const id = project.id || project.name || 'default';
+    const id = global.SNESProjectModel ? global.SNESProjectModel.ensureId(project) : (project.id || ('proj_'+Date.now()));
     // Recent list (small)
     try {
       let recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');

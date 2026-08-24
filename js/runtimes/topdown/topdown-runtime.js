@@ -317,7 +317,7 @@
     const L = ensureLayers(scene);
     const theme = themes[scene.themeId] || themes.floresta;
     const tiles = theme.tiles;
-    ctx.clearRect(0, 0, W, H);
+    if (!rt.__skipClear) ctx.clearRect(0, 0, W, H);
     for (let y = 0; y < ROWS; y++)
       for (let x = 0; x < COLS; x++)
         drawTileAt(ctx, tiles[L.background[y][x]] || tiles[0], x * T, y * T, T);
@@ -364,7 +364,7 @@
         if (L.foreground[y][x]) drawTileAt(ctx, tiles[L.foreground[y][x]] || tiles[0], x * T, y * T, T);
 
     // HUD nativo (oculto quando Game Flow fornece UI externa)
-    if (!rt.__externalUi) {
+    if (!(rt.__externalUi || rt.__cameraPipeline)) {
       ctx.fillStyle = '#0b0b12aa'; ctx.fillRect(6, 6, 180, 28);
       ctx.fillStyle = '#fff'; ctx.font = '12px monospace';
       ctx.fillText('❤' + p.hp + '  🔑' + (p.keys || 0) + '  ' + p.score, 12, 24);
@@ -403,7 +403,7 @@
       }
     }
 
-    if (rt.gameOver && !rt.__externalUi) {
+    if (rt.gameOver && !(rt.__externalUi || rt.__cameraPipeline)) {
       ctx.fillStyle = '#000000bb'; ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = '#fff'; ctx.font = '20px monospace';
       ctx.fillText('GAME OVER', W / 2 - 55, H / 2);

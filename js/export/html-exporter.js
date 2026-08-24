@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio V7 — Exportador HTML multi-runtime
+ * SNES Engine Studio 1.0 — Exportador HTML multi-runtime integrado
  * Usa fontes embutidas em window.__SNES_EXPORT_SOURCES
  */
 (function () {
@@ -14,6 +14,14 @@
     const src = window.__SNES_EXPORT_SOURCES || {};
     // Core always
     const parts = [
+      src.tilemap || '',
+      src.projectModel || '',
+      src.logger || '',
+      src.profiler || '',
+      src.dependencyGraph || '',
+      src.autotile || '',
+      src.animatorController || '',
+      src.collisionLayers || '',
       src.assetManager || '',
       src.audioManager || '',
       src.textureAtlas || '',
@@ -29,6 +37,9 @@
       src.eventBus || '',
       src.runtimeSession || '',
       src.entityComponents || '',
+      src.entityWorld || '',
+      src.storageHub || '',
+      src.gameStateMachine || '',
       src.projectStore || '',
       src.studioRuntime || '',
       src.gameFlow || ''
@@ -107,7 +118,8 @@ const buttons=${JSON.stringify(mobile)};
 if(window.SNESGameFlow){
   SNESGameFlow.defaults(PROJECT);
   const flow=SNESGameFlow.start(PROJECT,canvas,{themes:THEMES,enemyVariants:ENEMY_VARIANTS,skeletonDraw:skDraw});
-  const syncPad=setInterval(function(){const a=SNESEngine.getActive&&SNESEngine.getActive();if(a&&a.rt){SNESEngine.attachMobilePad(pad,a.rt,buttons);clearInterval(syncPad)}},120);
+  const attach=function(){const a=SNESEngine.getActive&&SNESEngine.getActive();if(a&&a.rt)SNESEngine.attachMobilePad(pad,a.rt,buttons)};
+  if(window.SNESEvents)SNESEvents.on('runtime:started',attach);queueMicrotask(attach);
 }else{
   const handle=SNESEngine.play(PROJECT,canvas,THEMES,ENEMY_VARIANTS,skDraw);
   if(handle&&handle.rt)SNESEngine.attachMobilePad(pad,handle.rt,buttons);

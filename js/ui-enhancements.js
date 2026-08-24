@@ -15,7 +15,7 @@ const modalCloseBtn=$('modalClose');
 if(modalCloseBtn)modalCloseBtn.onclick=closeModal;
 $('modal')?.addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
 
-let changed=false,timer=0;function scheduleSave(){changed=true;saveState.textContent='● Salvando…';saveState.classList.add('pending');clearTimeout(timer);timer=setTimeout(()=>{try{localStorage.setItem('snes_engine_studio_project_v6',JSON.stringify(A.project));saveState.textContent='✓ Salvo automaticamente';saveState.classList.remove('pending');changed=false}catch(_){saveState.textContent='Falha ao salvar'}},1600)}
+let changed=false,timer=0;function scheduleSave(){changed=true;saveState.textContent='● Salvando…';saveState.classList.add('pending');clearTimeout(timer);timer=setTimeout(()=>{try{if(window.SNESSave)SNESSave.saveEditor(A.project);else if(window.SNESStorage?.legacy)SNESStorage.legacy.set('snes_engine_studio_project_v6',JSON.stringify(A.project));else localStorage.setItem('snes_engine_studio_project_v6',JSON.stringify(A.project));saveState.textContent='✓ Salvo automaticamente';saveState.classList.remove('pending');changed=false}catch(_){saveState.textContent='Falha ao salvar'}},1600)}
 const observer=new MutationObserver(()=>{enhancePanels()});observer.observe($('rightPanel'),{childList:true,subtree:true});
 ['input','change','pointerup'].forEach(ev=>document.addEventListener(ev,e=>{if(e.target.closest('.app'))scheduleSave()},true));
 addEventListener('beforeunload',e=>{if(changed){e.preventDefault();e.returnValue=''}});
@@ -25,6 +25,6 @@ let drag=null;function pointer(e){const r=canvas.getBoundingClientRect();return{
 canvas.addEventListener('pointerdown',e=>{if(A.playing||A.view!=='entities')return;const p=pointer(e),found=[...A.scene().entities].reverse().find(q=>Math.abs(q.x-p.x)<28&&Math.abs(q.y-p.y)<38);if(!found)return;e.preventDefault();e.stopImmediatePropagation();A.pushHistory();A.selectedEntity=found.id;drag={entity:found,dx:p.x-found.x,dy:p.y-found.y};canvas.setPointerCapture(e.pointerId);A.drawGrid()},true);
 canvas.addEventListener('pointermove',e=>{if(!drag)return;const p=pointer(e);drag.entity.x=Math.max(0,Math.min(500,Math.round(p.x-drag.dx)));drag.entity.y=Math.max(0,Math.min(274,Math.round(p.y-drag.dy)));A.drawGrid()},true);
 canvas.addEventListener('pointerup',()=>{if(!drag)return;drag=null;A.renderRight();A.drawGrid();scheduleSave()},true);
-setTimeout(()=>{enhancePanels();if(!localStorage.getItem('snes_ui_seen')){localStorage.setItem('snes_ui_seen','1');helpModal()}},120);
+setTimeout(()=>{enhancePanels();const st=window.SNESStorage?.legacy;const seen=st?st.get('snes_ui_seen'):localStorage.getItem('snes_ui_seen');if(!seen){if(st)st.set('snes_ui_seen','1');else localStorage.setItem('snes_ui_seen','1');helpModal()}},120);
 }
 addEventListener('snesstudio:ready',init);if(window.SNESStudio)init();})();

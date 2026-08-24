@@ -246,13 +246,13 @@
 
       const save = n => {
         if (window.SNESSave) SNESSave.saveSlot(n, A.project);
-        else localStorage.setItem('snes_v7_slot_' + n, JSON.stringify(A.project));
+        else if(window.SNESStorage?.legacy)SNESStorage.legacy.set('snes_v7_slot_' + n,JSON.stringify(A.project));else localStorage.setItem('snes_v7_slot_' + n, JSON.stringify(A.project));
         A.toast('Save ' + n + ' gravado');
       };
       const load = n => {
         let data = window.SNESSave ? SNESSave.loadSlot(n) : null;
         if (!data) {
-          try { data = JSON.parse(localStorage.getItem('snes_v7_slot_' + n) || localStorage.getItem('snes_v6_slot_' + n) || 'null'); } catch (_) {}
+          try { const st=window.SNESStorage?.legacy;const raw=st?(st.get('snes_v7_slot_'+n)||st.get('snes_v6_slot_'+n)):(localStorage.getItem('snes_v7_slot_' + n) || localStorage.getItem('snes_v6_slot_' + n)); data = JSON.parse(raw || 'null'); } catch (_) {}
         }
         if (!data) return A.toast('Slot vazio');
         A.project = A.migrateProject ? A.migrateProject(data) : data;

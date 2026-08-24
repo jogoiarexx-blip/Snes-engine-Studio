@@ -102,26 +102,24 @@
     function autoTileCell(m, x, y) {
       if (x < 0 || y < 0 || x >= 32 || y >= 18) return;
       const cur = m[y][x];
-      if (cur === 0 || cur >= 3) return;
-      const N = isFilled(m, x, y - 1);
-      const S = isFilled(m, x, y + 1);
-      const W = isFilled(m, x - 1, y);
-      const E = isFilled(m, x + 1, y);
-      const NW = isFilled(m, x - 1, y - 1);
-      const NE = isFilled(m, x + 1, y - 1);
-      const SW = isFilled(m, x - 1, y + 1);
-      const SE = isFilled(m, x + 1, y + 1);
-      // Isolado / plataforma
-      if (!N && !S && !W && !E) { m[y][x] = 1; return; }
-      // Topo (sem vizinho acima) — superfície
-      if (!N) { m[y][x] = 1; return; }
-      // Canto interno (faltam diagonais mas tem N/S/E/W)
-      if (N && S && W && E && (!NW || !NE || !SW || !SE)) { m[y][x] = 2; return; }
-      // Centro cheio
-      if (N && S && W && E) { m[y][x] = 2; return; }
-      // Laterais / base
-      if (!S || !W || !E) { m[y][x] = 1; return; }
-      m[y][x] = 2;
+      if (cur === 0) return;
+      const theme=A.curTheme?.()||{};
+      const tile=theme.tiles?.[cur]||{};
+      // Explicit rule map wins. This supports full bitmask autotile packs.
+      if(window.SNESAutotile && (tile.autotileGroup||theme.autotileRules)){
+        const group=tile.autotileGroup||'default';
+        const get=(gx,gy)=>{if(gx<0||gy<0||gx>=32||gy>=18)return cur;const v=m[gy]?.[gx]||0;const t=theme.tiles?.[v];return t?.autotileGroup===group?group:(v===cur?group:null)};
+        const mask=window.SNESAutotile.mask(get,x,y,group,!!theme.autotileDiagonal);
+        const rules=tile.autotileRules||theme.autotileRules?.[group]||theme.autotileRules;
+        m[y][x]=window.SNESAutotile.resolve(rules,mask,cur);
+        return;
+      }
+      // Compatibility for classic 0/1/2 themes, still using the canonical mask helper.
+      if (cur >= 3) return;
+      const get=(gx,gy)=>isFilled(m,gx,gy)?1:0;
+      const mask=window.SNESAutotile?window.SNESAutotile.mask(get,x,y,1,true):0;
+      const N=!!(mask&1),E=!!(mask&2),S=!!(mask&4),W=!!(mask&8),NE=!!(mask&16),SE=!!(mask&32),SW=!!(mask&64),NW=!!(mask&128);
+      if(!N&&!S&&!W&&!E){m[y][x]=1;return}if(!N){m[y][x]=1;return}if(N&&S&&W&&E&&(!NW||!NE||!SW||!SE)){m[y][x]=2;return}if(N&&S&&W&&E){m[y][x]=2;return}if(!S||!W||!E){m[y][x]=1;return}m[y][x]=2;
     }
 
     function autoTileRegion(m, cells) {
@@ -293,7 +291,7 @@
           A.pushHistory();
           m[p.y][p.x] = A.selectedTile;
           if (autoOnPaint) autoTileRegion(m, [[p.x, p.y]]);
-          if (window.SNESRender) window.SNESRender.markDirty(s.layers || s, active);
+          if (window.SNESRender) { const sc=A.scene(); window.SNESRender.markDirty(sc.layers || sc, active); }
           A.drawGrid();
         }
         // Continuar arrasto
@@ -303,7 +301,7 @@
           if (m[q.y] && m[q.y][q.x] !== A.selectedTile) {
             m[q.y][q.x] = A.selectedTile;
             if (autoOnPaint) autoTileRegion(m, [[q.x, q.y]]);
-            if (window.SNESRender) window.SNESRender.markDirty(s.layers || s, active);
+            if (window.SNESRender) { const sc=A.scene(); window.SNESRender.markDirty(sc.layers || sc, active); }
             A.drawGrid();
           }
         };

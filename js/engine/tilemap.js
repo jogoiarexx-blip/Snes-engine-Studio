@@ -1,0 +1,16 @@
+/** SNES Engine Studio 1.0 — canonical chunked tilemap model. */
+(function(g){'use strict';
+const TILE=16,COLS=32,ROWS=18;
+function blank(){return Array.from({length:ROWS},()=>Array(COLS).fill(0))}
+function cloneMap(m){return (Array.isArray(m)?m:blank()).map(r=>Array.isArray(r)?r.slice(0,COLS).concat(Array(Math.max(0,COLS-r.length)).fill(0)):Array(COLS).fill(0)).slice(0,ROWS).concat(Array(Math.max(0,ROWS-(m?.length||0))).fill(0).map(()=>Array(COLS).fill(0)))}
+function layerSet(src){src=src||{};return {background:cloneMap(src.background),ground:cloneMap(src.ground),decoration:cloneMap(src.decoration),foreground:cloneMap(src.foreground),collision:Array.isArray(src.collision)?cloneMap(src.collision):null}}
+function ensure(scene){if(!scene)throw new Error('Scene ausente');let chunks=scene.tilemap?.chunks||scene.chunks;if(!chunks||typeof chunks!=='object')chunks={};if(!chunks['0,0']){const legacy=scene.layers||{};chunks['0,0']={x:0,y:0,layers:layerSet({background:legacy.background,ground:legacy.ground||scene.map,decoration:legacy.decoration,foreground:legacy.foreground,collision:legacy.collision})}}
+ scene.tilemap=Object.assign({tileSize:TILE,chunkCols:COLS,chunkRows:ROWS},scene.tilemap||{}, {chunks});scene.chunks=chunks;const cur=scene.__editorChunk||{x:0,y:0};activate(scene,cur.x||0,cur.y||0,true);return scene.tilemap}
+function getChunk(scene,cx,cy,create=false){const tm=ensureBase(scene),key=cx+','+cy;if(!tm.chunks[key]&&create)tm.chunks[key]={x:cx,y:cy,layers:layerSet()};return tm.chunks[key]||null}
+function ensureBase(scene){if(scene.tilemap?.chunks){scene.chunks=scene.tilemap.chunks;return scene.tilemap}return ensure(scene)}
+function activate(scene,cx=0,cy=0,create=true){const tm=ensureBaseNoActivate(scene);const key=cx+','+cy;if(!tm.chunks[key]&&create)tm.chunks[key]={x:cx,y:cy,layers:layerSet()};const ch=tm.chunks[key]||tm.chunks['0,0'];if(ch){scene.__editorChunk={x:ch.x??cx,y:ch.y??cy};scene.layers=ch.layers;scene.map=ch.layers.ground}scene.chunks=tm.chunks;return ch}
+function ensureBaseNoActivate(scene){if(scene.tilemap?.chunks)return scene.tilemap;let chunks=scene.chunks&&typeof scene.chunks==='object'?scene.chunks:{};if(!chunks['0,0']){const L=scene.layers||{};chunks['0,0']={x:0,y:0,layers:layerSet({background:L.background,ground:L.ground||scene.map,decoration:L.decoration,foreground:L.foreground,collision:L.collision})}}scene.tilemap={tileSize:TILE,chunkCols:COLS,chunkRows:ROWS,chunks};scene.chunks=chunks;return scene.tilemap}
+function normalizeScene(scene){const tm=ensureBaseNoActivate(scene);for(const [key,ch] of Object.entries(tm.chunks)){const [x,y]=key.split(',').map(Number);ch.x=Number.isFinite(ch.x)?ch.x:x;ch.y=Number.isFinite(ch.y)?ch.y:y;ch.layers=layerSet(ch.layers)}activate(scene,scene.__editorChunk?.x||0,scene.__editorChunk?.y||0,true);return scene}
+function at(scene,layer,worldX,worldY,create=false){const cx=Math.floor(worldX/(COLS*TILE)),cy=Math.floor(worldY/(ROWS*TILE)),ch=getChunk(scene,cx,cy,create);if(!ch)return null;const tx=((Math.floor(worldX/TILE)%COLS)+COLS)%COLS,ty=((Math.floor(worldY/TILE)%ROWS)+ROWS)%ROWS;const m=ch.layers[layer]||ch.layers.ground;return {chunk:ch,cx,cy,tx,ty,map:m,value:m?.[ty]?.[tx]??0}}
+g.SNESTileMap={TILE,COLS,ROWS,blank,cloneMap,ensure,normalizeScene,getChunk,activate,at};
+})(typeof window!=='undefined'?window:globalThis);

@@ -18,11 +18,13 @@
     pause: ['p', 'P', 'Escape']
   };
 
-  const STORAGE_KEY = 'snes_v09_controls';
+  const STORAGE_KEY = 'editor_controls';
+  const pref=()=>window.SNESStorage?.preferences;
 
   function loadMap() {
     try {
-      const o = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      const raw=pref()?pref().get(STORAGE_KEY,null):(window.SNESStorage?.legacy?.get('snes_v09_controls')||localStorage.getItem('snes_v09_controls'));
+      const o = typeof raw==='string'?JSON.parse(raw||'null'):raw;
       return o || JSON.parse(JSON.stringify(DEFAULTS));
     } catch (_) {
       return JSON.parse(JSON.stringify(DEFAULTS));
@@ -30,7 +32,7 @@
   }
 
   function saveMap(map) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+    if(pref())pref().set(STORAGE_KEY,map);else (window.SNESStorage?.legacy?.set('snes_v09_controls',JSON.stringify(map))||localStorage.setItem('snes_v09_controls',JSON.stringify(map)));
     applyToInput(map);
   }
 
@@ -64,7 +66,7 @@
       html += '<span class="badge" id="ctrlListen"></span></div>';
       html += '<h3 style="margin-top:12px">Touch (export/teste)</h3>';
       html += '<label>Opacidade <input id="touchOp" type="range" min="20" max="100" value="' +
-        (localStorage.getItem('snes_touch_op') || '55') + '"></label>';
+        ((pref()&&pref().get('touch_op',null)) || window.SNESStorage?.legacy?.get('snes_touch_op') || '55') + '"></label>';
       b.innerHTML = html;
 
       b.querySelectorAll('.ctrlMap').forEach(btn => {
@@ -80,7 +82,7 @@
       document.getElementById('ctrlSave').onclick = () => {
         saveMap(map);
         const op = document.getElementById('touchOp').value;
-        localStorage.setItem('snes_touch_op', op);
+        if(pref())pref().set('touch_op',op);else if(window.SNESStorage?.legacy)SNESStorage.legacy.set('snes_touch_op',op);else localStorage.setItem('snes_touch_op',op);
         A.toast('Controles salvos');
         m.classList.add('hidden');
       };

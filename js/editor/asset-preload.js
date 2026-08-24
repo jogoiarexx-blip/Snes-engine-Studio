@@ -1,62 +1,9 @@
-/**
- * Preload de assets ao iniciar o Studio + barra leve
- */
-// optional worker warm-up
-(function warm() {
-  if (window.SNESLoadWorker) {
-    window.SNESLoadWorker.ping().then(function () {
-      console.info('[SNES] Load worker OK');
-    }).catch(function () {});
-  }
-})();
-(function () {
-  function showBar() {
-    let el = document.getElementById('assetLoadBar');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'assetLoadBar';
-      el.style.cssText = 'position:fixed;left:0;right:0;top:0;height:3px;background:#1a2030;z-index:100;';
-      el.innerHTML = '<div id="assetLoadFill" style="height:100%;width:0;background:#f7b32b;transition:width .15s"></div>';
-      document.body.appendChild(el);
-    }
-    return el;
-  }
-  function hideBar() {
-    const el = document.getElementById('assetLoadBar');
-    if (el) setTimeout// optional worker warm-up
-(function warm() {
-  if (window.SNESLoadWorker) {
-    window.SNESLoadWorker.ping().then(function () {
-      console.info('[SNES] Load worker OK');
-    }).catch(function () {});
-  }
-})();
-(function () { el.remove(); }, 300);
-  }
-  function run() {
-    if (!window.SNESAssets) return;
-    const A = window.SNESStudio;
-    const project = A && A.project;
-    showBar();
-    const fill = document.getElementById('assetLoadFill');
-    SNESAssets.preloadStudio(project, function (done, total, ratio) {
-      if (fill) fill.style.width = Math.round(ratio * 100) + '%';
-    }).then// optional worker warm-up
-(function warm() {
-  if (window.SNESLoadWorker) {
-    window.SNESLoadWorker.ping().then(function () {
-      console.info('[SNES] Load worker OK');
-    }).catch(function () {});
-  }
-})();
-(function () {
-      hideBar();
-      if (window.NinjaKartSprites) window.NinjaKartSprites.load('');
-      const st = SNESAssets.stats();
-      console.info('[SNESAssets]', st.ok + '/' + st.total + ' ok');
-    });
-  }
-  addEventListener('snesstudio:ready', run);
-  // also when game type changes to kart
-  addEventListener('snesstudio:gametype', run);
-})();
+/** Asset preload UI — clean implementation with project assets + structured errors. */
+(function(g){'use strict';let running=null;
+function bar(){let el=document.getElementById('assetLoadBar');if(!el){el=document.createElement('div');el.id='assetLoadBar';el.style.cssText='position:fixed;left:0;right:0;top:0;height:4px;background:#1a2030;z-index:10050';el.innerHTML='<div id="assetLoadFill" style="height:100%;width:0;background:#f7b32b;transition:width .12s"></div>';document.body.appendChild(el)}return el}
+function hide(){const el=document.getElementById('assetLoadBar');if(el)setTimeout(()=>el.remove(),250)}
+function projectManifest(project){const list=(g.SNESAssets?.studioManifest(project?.gameType)||[]).slice();for(const a of project?.studio?.assets||[]){if(a.kind!=='image')continue;const src=a.dataUrl||a.url;if(!src)continue;list.push({id:'project:'+a.id,src,type:'image',optional:true,dataUrl:a.dataUrl||null})}return list}
+async function run(){if(!g.SNESAssets)return;const project=g.SNESStudio?.project;if(running)return running;bar();const fill=document.getElementById('assetLoadFill'),items=projectManifest(project);running=g.SNESAssets.preload(items,(done,total,ratio)=>{if(fill)fill.style.width=Math.round(ratio*100)+'%'}).then(results=>{hide();running=null;const st=g.SNESAssets.stats();if(st.error)g.SNESLogger?.warn('asset',st.error+' asset(s) falharam no preload',st);else g.SNESLogger?.info('asset','Preload concluído',st);g.SNESEvents?.emit('assets:ready',{stats:st,project});return results}).catch(err=>{hide();running=null;g.SNESLogger?.error('asset','Falha no preload',err);g.SNESEvents?.emit('assets:error',{error:err});return[]});return running}
+async function warm(){try{await g.SNESLoadWorker?.ping?.();g.SNESLogger?.debug('asset','Load worker OK')}catch(_){}}
+g.SNESAssetPreload={run,projectManifest};warm();addEventListener('snesstudio:ready',run);addEventListener('snesstudio:gametype',run);addEventListener('snesstudio:project-loaded',run);
+})(typeof window!=='undefined'?window:globalThis);

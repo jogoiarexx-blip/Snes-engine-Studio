@@ -1,0 +1,2 @@
+/** 4/8-way bitmask autotile helper. */
+(function(g){'use strict';const B={N:1,E:2,S:4,W:8,NE:16,SE:32,SW:64,NW:128};function mask(get,x,y,value,diag=false){let m=0;const eq=(dx,dy)=>get(x+dx,y+dy)===value;if(eq(0,-1))m|=B.N;if(eq(1,0))m|=B.E;if(eq(0,1))m|=B.S;if(eq(-1,0))m|=B.W;if(diag){if(eq(1,-1))m|=B.NE;if(eq(1,1))m|=B.SE;if(eq(-1,1))m|=B.SW;if(eq(-1,-1))m|=B.NW}return m}function resolve(ruleMap,m,fallback=0){return ruleMap?.[m]??ruleMap?.[String(m)]??fallback}g.SNESAutotile={BITS:B,mask,resolve};})(typeof window!=='undefined'?window:globalThis);

@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio V7 — Colisão compartilhada
+ * SNES Engine Studio 1.0 — colisão compartilhada
  */
 (function (global) {
   'use strict';
@@ -90,6 +90,7 @@
   }
 
   function aabbOverlap(a, b) {
+    if (a?.components?.collider && b?.components?.collider && global.SNESCollisionLayers && !global.SNESCollisionLayers.can(a,b)) return false;
     return a.x < b.x + (b.w || 12) && a.x + (a.w || 12) > b.x &&
            a.y < b.y + (b.h || 12) && a.y + (a.h || 12) > b.y;
   }

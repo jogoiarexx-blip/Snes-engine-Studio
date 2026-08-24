@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio V7 — Núcleo: seleciona runtime e roda o loop
+ * SNES Engine Studio 1.0 — núcleo integrado de runtime.
  */
 (function (global) {
   'use strict';
@@ -46,10 +46,28 @@
       return null;
     }
     const rt = RT.createState(project, project.currentScene);
+    // Runtime entities are now the canonical EntityWorld collection. Legacy runtimes
+    // still read direct fields, so components are synchronized at the frame boundary.
+    if (global.SNESEntityComponents) {
+      (rt.entities||[]).forEach(e=>global.SNESEntityComponents.ensure(e));
+      const pe=(rt.scene?.entities||[]).find(e=>e.type==='player');
+      if(pe){ rt.playerEntity=global.SNESProjectModel?global.SNESProjectModel.clone(pe):JSON.parse(JSON.stringify(pe)); global.SNESEntityComponents.ensure(rt.playerEntity); Object.assign(rt.playerEntity,{x:rt.player.x,y:rt.player.y,hp:rt.player.hp,maxHp:rt.player.maxHp,speed:rt.player.speed,jump:rt.player.jump}); global.SNESEntityComponents.syncFromLegacy(rt.playerEntity); }
+    }
+    rt.world = global.SNESEntityWorld ? global.SNESEntityWorld.create({entities:rt.entities||(rt.entities=[])}) : null;
+    if(rt.world){
+      rt.entities=rt.world.entities;
+      // Legacy genre runtimes keep some gameplay collections outside rt.entities.
+      // Attach them to EntityWorld so queries/debug/systems see one canonical world.
+      for(const name of ['enemies','items','projectiles','bullets','pickups','npcs']){
+        if(Array.isArray(rt[name]))rt.world.attachCollection(name,rt[name],false);
+      }
+      rt.world.reindex();
+    }
     RT.start(rt, window);
     const token = ++playToken;
     active = { rt, RT, canvas, themes, enemyVariants, skeletonDraw, token };
     playing = true;
+    if (global.SNESEvents) global.SNESEvents.emit('runtime:started',{rt:rt,token:token,project:project});
     last = 0;
     hooks = hooks || {};
     onStop = hooks.onStop || null;
@@ -74,19 +92,34 @@
 
     function loop(now) {
       if (!playing) return;
+      if(global.SNESProfiler)global.SNESProfiler.begin();
       const dt = Math.min(0.033, last ? (now - last) / 1000 : 1 / 60);
       last = now;
       const Studio = global.SNESStudioRuntime;
+      if(global.SNESEntityComponents){
+        (rt.world?.entities||rt.entities||[]).forEach(e=>global.SNESEntityComponents.syncToLegacy(e));
+        if(rt.playerEntity){global.SNESEntityComponents.syncToLegacy(rt.playerEntity);Object.assign(rt.player,{x:rt.playerEntity.x,y:rt.playerEntity.y,hp:rt.playerEntity.hp,maxHp:rt.playerEntity.maxHp,speed:rt.playerEntity.speed,jump:rt.playerEntity.jump});}
+      }
       if (Studio) { rt.__studioThemes = themes; Studio.beginFrame(rt, dt); }
       RT.tick(rt, themes, enemyVariants, dt, now);
+      if(global.SNESProfiler)global.SNESProfiler.mark('update');
+      if(global.SNESEntityComponents){
+        (rt.world?.entities||rt.entities||[]).forEach(e=>global.SNESEntityComponents.syncFromLegacy(e));
+        if(rt.playerEntity){Object.assign(rt.playerEntity,{x:rt.player.x,y:rt.player.y,hp:rt.player.hp,maxHp:rt.player.maxHp,speed:rt.player.speed,jump:rt.player.jump});global.SNESEntityComponents.syncFromLegacy(rt.playerEntity);}
+      }
+      if(rt.world){for(const name of ['enemies','items','projectiles','bullets','pickups','npcs'])if(Array.isArray(rt[name]))rt.world.attachCollection(name,rt[name],false);rt.world.reindex();}
       if (Studio) Studio.afterTick(rt);
       if (Studio) Studio.beforeDraw(rt);
       const sh = Studio ? Studio.applyShake && Studio.applyShake(ctx, rt) : null;
-      if (sh && (sh.x || sh.y)) { ctx.save(); ctx.translate(sh.x, sh.y); }
+      const genericCamera = (mapped==='platform'||mapped==='topdown'||mapped==='shooter') && rt.camera && (((rt.camera.worldW||512)>512)||((rt.camera.worldH||288)>288)||Math.abs(rt.camera.x||0)>0.01||Math.abs(rt.camera.y||0)>0.01);
+      rt.__cameraPipeline=!!genericCamera;rt.__skipClear=!!genericCamera;
+      if(genericCamera)ctx.clearRect(0,0,canvas.width,canvas.height);
+      if (genericCamera || (sh && (sh.x || sh.y))) { ctx.save(); ctx.translate((sh?.x||0)-(genericCamera?(rt.camera.x||0):0),(sh?.y||0)-(genericCamera?(rt.camera.y||0):0)); }
       RT.drawFrame(ctx, rt, themes, enemyVariants, skeletonDraw);
-      if (sh && (sh.x || sh.y)) ctx.restore();
+      if (genericCamera || (sh && (sh.x || sh.y))) ctx.restore();
       if (Studio) Studio.afterDraw(ctx, rt);
       if (Studio) Studio.endFrame(rt);
+      if(global.SNESProfiler){global.SNESProfiler.mark('render');global.SNESProfiler.end({entities:rt.world?.entities?.length||0});}
       if (hooks.onFrame) { try { hooks.onFrame(rt, dt, now); } catch (e) { console.error('[SNESEngine] onFrame', e); } }
       if (global.SNESEvents) global.SNESEvents.emit('engine:frame', { rt: rt, token: token, dt: dt, now: now });
       const nextEnd = rt.gameOver ? 'gameover' : rt.won ? 'won' : '';

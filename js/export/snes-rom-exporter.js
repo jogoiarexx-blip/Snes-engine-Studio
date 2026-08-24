@@ -1,7 +1,7 @@
 /**
  * SNES Engine Studio 1.0 — Real .SFC ROM exporter
  * Generates a bootable 32 KiB LoROM directly in the browser, no external assembler.
- * Current SNES runtime subset: current scene tilemap preview + controllable OBJ player.
+ * EXPERIMENTAL native SNES runtime subset: current scene tilemap preview + controllable OBJ player.
  */
 (function(global){
 'use strict';
@@ -30,6 +30,25 @@ function playerTile4bpp(){
   const lo=[]; for(const row of pix){let p0=0; for(let x=0;x<8;x++)if(row[x]==='1')p0|=(1<<(7-x)); lo.push(p0,0);}
   return lo.concat(new Array(16).fill(0));
 }
+
+function loadImage(src){return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(new Error('Falha ao carregar imagem SNES: '+src));im.src=src})}
+function nearest(pal,r,g,b){let bi=1,bd=1e9;for(let i=1;i<pal.length;i++){const c=pal[i],dr=r-c[0],dg=g-c[1],db=b-c[2],d=dr*dr+dg*dg+db*db;if(d<bd){bd=d;bi=i}}return bi}
+async function compileThemeGraphics(project,theme){
+  const tiles=(theme&&theme.tiles||[]).slice(0,8); if(!tiles.some(t=>t&&t.src))return null;
+  const samples=[],raw=[];
+  for(const tile of tiles){
+    if(!tile||!tile.src){raw.push(null);continue}
+    let src='';if(tile.assetId){const a=project.studio?.assets?.find(x=>x.id===tile.assetId);src=a&&(a.dataUrl||a.url)||''}else src=global.SNES_BUILTIN_TILE_SHEETS?.[tile.sheet]||'';
+    if(!src){raw.push(null);continue}
+    const im=await loadImage(src),cv=document.createElement('canvas');cv.width=cv.height=8;const cx=cv.getContext('2d',{willReadFrequently:true});cx.imageSmoothingEnabled=false;const r=tile.src;cx.drawImage(im,r[0],r[1],r[2],r[3],0,0,8,8);const data=cx.getImageData(0,0,8,8).data;raw.push(data);for(let i=0;i<data.length;i+=4){if(data[i+3]<32)continue;samples.push([data[i],data[i+1],data[i+2]])}
+  }
+  const freq=new Map();for(const c of samples){const k=((c[0]>>3)<<10)|((c[1]>>3)<<5)|(c[2]>>3);freq.set(k,(freq.get(k)||0)+1)}
+  const keys=[...freq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,15).map(x=>x[0]);const pal=[[0,0,0]];for(const k of keys){pal.push([((k>>10)&31)<<3,((k>>5)&31)<<3,(k&31)<<3])}while(pal.length<16)pal.push(pal[pal.length-1]||[0,0,0]);
+  const bgPalette=pal.map(c=>hexToBgr15('#'+c.map(v=>v.toString(16).padStart(2,'0')).join(''))),bgTiles=[];
+  for(let ti=0;ti<8;ti++){const data=raw[ti];if(!data){bgTiles.push(...makeSolid4bpp(Math.min(15,ti+1)));continue}const idx=[];for(let i=0;i<data.length;i+=4)idx.push(data[i+3]<32?0:nearest(pal,data[i],data[i+1],data[i+2]));const enc=global.SNESSnesAssetCompiler?.tile4bpp(idx)||makeSolid4bpp(ti+1);bgTiles.push(...enc)}
+  return {bgPalette,bgTiles,source:'theme-pixels'};
+}
+
 function mapData(project,theme){
   const sc=(project.scenes||[]).find(s=>s.id===project.currentScene)||(project.scenes||[])[0]||{};
   const map=sc.map||(sc.layers&&sc.layers.ground)||[];
@@ -150,13 +169,13 @@ function buildCode(data){
   a.label('map_data');a.emit.apply(a,data.map);
   return {bytes:a.resolve(),labels:a.labels};
 }
-function buildRom(project,themes){
+function buildRom(project,themes,compiled){
   const sc=(project.scenes||[]).find(s=>s.id===project.currentScene)||(project.scenes||[])[0]||{};
   const theme=(themes&&themes[sc.themeId])||Object.values(themes||{})[0]||{tiles:[]};
   const md=mapData(project,theme);
-  const palette=[hexToBgr15('#101424')];
-  for(let i=0;i<8;i++)palette.push(hexToBgr15((theme.tiles&&theme.tiles[i]&&theme.tiles[i].color)||'#404858'));
-  const bgTiles=[];for(let i=0;i<8;i++)bgTiles.push.apply(bgTiles,makeSolid4bpp(i+1));
+  const palette=compiled?.bgPalette||[hexToBgr15('#101424')];
+  if(!compiled?.bgPalette)for(let i=0;i<8;i++)palette.push(hexToBgr15((theme.tiles&&theme.tiles[i]&&theme.tiles[i].color)||'#404858'));
+  const bgTiles=compiled?.bgTiles||[];if(!compiled?.bgTiles)for(let i=0;i<8;i++)bgTiles.push.apply(bgTiles,makeSolid4bpp(i+1));
   const player=(sc.entities||[]).find(e=>e.type==='player')||{x:120,y:100};
   const data={map:md.bytes,bgTiles,objTile:playerTile4bpp(),bgPalette:palette,playerX:clamp(Math.round((player.x||120)/2),8,247),playerY:clamp(Math.round((player.y||100)*0.75),8,215)};
   const code=buildCode(data); if(code.bytes.length>0x7fc0)throw new Error('Runtime SNES excedeu o banco LoROM de 32 KiB');
@@ -175,10 +194,10 @@ function buildRom(project,themes){
   rom[0x7fdc]=rom[0x7fdd]=rom[0x7fde]=rom[0x7fdf]=0;
   let sum=0;for(let i=0;i<rom.length;i++)sum=(sum+rom[i])&0xffff;const checksum=(sum+510)&0xffff, comp=checksum^0xffff;
   rom[0x7fdc]=comp&255;rom[0x7fdd]=(comp>>8)&255;rom[0x7fde]=checksum&255;rom[0x7fdf]=(checksum>>8)&255;
-  return {rom,meta:{title,scene:md.scene.name||'Cena',runtimeBytes:code.bytes.length,checksum,format:'LoROM 32 KiB .sfc',features:['tilemap da cena atual','paleta do tema','player controlado pelo D-pad']}};
+  return {rom,meta:{title,scene:md.scene.name||'Cena',runtimeBytes:code.bytes.length,checksum,format:'LoROM 32 KiB .sfc',features:['tilemap da cena atual',compiled?'tiles reais quantizados para 4bpp':'paleta simplificada do tema','player controlado pelo D-pad']}};
 }
 function compatibility(project){
-  const issues=[],warnings=[]; const sc=(project.scenes||[]).find(s=>s.id===project.currentScene)||(project.scenes||[])[0];
+  const issues=[],warnings=[]; const ac=global.SNESSnesAssetCompiler&&global.SNESSnesAssetCompiler.analyze(project); if(ac){issues.push(...ac.errors);warnings.push(...ac.warnings);} const sc=(project.scenes||[]).find(s=>s.id===project.currentScene)||(project.scenes||[])[0];
   if(!sc)issues.push('Projeto sem cena para compilar.');
   if((project.scenes||[]).length>1)warnings.push('A ROM 1.0 compila a cena atual; troca de cenas ainda não foi portada para o runtime SNES.');
   if(sc&&((sc.entities||[]).filter(e=>e.type==='enemy').length))warnings.push('Inimigos ainda não executam IA na ROM SNES 1.0.');
@@ -186,7 +205,7 @@ function compatibility(project){
   if(project.assets&&project.assets.length)warnings.push('Assets PNG/áudio modernos não são copiados automaticamente; a ROM usa tiles/paleta compatíveis gerados da cena.');
   return {ok:!issues.length,issues,warnings};
 }
-function download(){
+async function download(){
   const A=global.SNESStudio;if(!A)return;const project=A.project,check=compatibility(project);
   if(!check.ok){A.toast('ROM SNES: '+check.issues[0]);return;}
   if(check.warnings.length){
@@ -194,7 +213,10 @@ function download(){
     if(typeof confirm==='function'&&!confirm(msg))return;
   }
   try{
-    const built=buildRom(project,A.THEMES);const base=(project.name||'meu-jogo').replace(/[^a-z0-9-_]+/gi,'_');
+    const sc=(project.scenes||[]).find(s=>s.id===project.currentScene)||(project.scenes||[])[0]||{};const theme=(A.THEMES&&A.THEMES[sc.themeId])||Object.values(A.THEMES||{})[0]||{tiles:[]};
+    A.setStatus&&A.setStatus('Compilando tiles para SNES 4bpp…');
+    const compiled=await compileThemeGraphics(project,theme).catch(err=>{console.warn(err);return null});
+    const built=buildRom(project,A.THEMES,compiled);const base=(project.name||'meu-jogo').replace(/[^a-z0-9-_]+/gi,'_');
     A.downloadFile(base+'.sfc',built.rom,'application/octet-stream');
     A.setStatus&&A.setStatus('ROM SNES compilada: '+built.meta.format+' · '+built.meta.scene+' · '+built.meta.runtimeBytes+' bytes de runtime');
     A.toast(check.warnings.length?'ROM .SFC gerada · '+check.warnings.length+' aviso(s) de compatibilidade':'ROM .SFC gerada com sucesso');
@@ -202,8 +224,8 @@ function download(){
   }catch(err){console.error(err);A.toast('Falha ao compilar ROM: '+err.message);}
 }
 function install(){
-  const btn=document.getElementById('exportSnesBtn');if(!btn)return;btn.textContent='🎮 ROM SNES (.sfc)';btn.title='Compilar ROM LoROM .sfc inicializável';btn.onclick=download;
+  const btn=document.getElementById('exportSnesBtn');if(!btn)return;btn.textContent='🧪 SNES Experimental (.sfc)';btn.title='Compilar ROM LoROM .sfc experimental; runtime SNES ainda não tem paridade total com HTML';btn.onclick=download;
 }
-global.SNESSfcExporter={buildRom,compatibility,download};
+global.SNESSfcExporter={buildRom,compatibility,compileThemeGraphics,download};
 addEventListener('snesstudio:ready',()=>setTimeout(install,0));if(global.SNESStudio)setTimeout(install,0);
 })(window);
