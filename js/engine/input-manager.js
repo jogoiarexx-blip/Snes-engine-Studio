@@ -83,24 +83,47 @@
       const g = gp();
       return !!(g && g.buttons[i] && (g.buttons[i].pressed || g.buttons[i].value > 0.5));
     }
+    const frameNow = Object.create(null), framePrev = Object.create(null);
+    const ACTIONS=['left','right','up','down','jump','attack','attack2','action','bomb','inventory','pause'];
     function pressed(name) {
       const km = global.__SNES_KEYMAP;
-      if (km && km[name]) {
-        for (const k of km[name]) {
-          if (k === ' ') { if (keys[' '] || keys.space) return true; }
-          else if (keys[k] || keys[k.toLowerCase()] || keys[k.toUpperCase()]) return true;
-        }
+      const hasMap = !!(km && Array.isArray(km[name]));
+      let keyHit = false;
+      if (hasMap) {
+        keyHit = km[name].some(function(k){
+          k=String(k).toLowerCase();
+          return k===' ' ? !!(keys[' ']||keys.space) : !!keys[k];
+        });
+      } else {
+        if (name === 'jump') keyHit = !!(keys.z || keys[' ']);
+        else if (name === 'attack') keyHit = !!(keys.x || keys.c);
+        else if (name === 'attack2') keyHit = !!keys.v;
+        else if (name === 'action') keyHit = !!(keys.e || keys.enter);
+        else if (name === 'bomb') keyHit = !!keys.b;
+        else if (name === 'inventory') keyHit = !!keys.i;
+        else if (name === 'pause') keyHit = !!(keys.p || keys.escape);
+        else keyHit = !!keys[name];
       }
-      // Standard mapping: A=0 B=1 X=2 Y=3 LB=4 RB=5 LT=6 RT=7 Start=9
-      if (name === 'jump') return !!(keys.z || keys[' '] || touch.jump || gpBtn(0));
-      if (name === 'attack') return !!(keys.x || keys.c || touch.attack || gpBtn(2) || gpBtn(1));
-      if (name === 'attack2') return !!(keys.v || touch.attack2 || gpBtn(3));
-      if (name === 'action') return !!(keys.e || keys.enter || touch.action || gpBtn(0));
-      if (name === 'bomb') return !!(keys.b || touch.bomb || gpBtn(4) || gpBtn(5));
-      if (name === 'inventory') return !!(keys.i || touch.inventory || gpBtn(8));
-      if (name === 'pause') return !!(keys.p || keys.escape || touch.pause || gpBtn(9));
-      return !!keys[name];
+      if (name === 'jump') return !!(keyHit || touch.jump || gpBtn(0));
+      if (name === 'attack') return !!(keyHit || touch.attack || gpBtn(2) || gpBtn(1));
+      if (name === 'attack2') return !!(keyHit || touch.attack2 || gpBtn(3));
+      if (name === 'action') return !!(keyHit || touch.action || gpBtn(0));
+      if (name === 'bomb') return !!(keyHit || touch.bomb || gpBtn(4) || gpBtn(5));
+      if (name === 'inventory') return !!(keyHit || touch.inventory || gpBtn(8));
+      if (name === 'pause') return !!(keyHit || touch.pause || gpBtn(9));
+      return keyHit;
     }
+
+
+    function beginFrame() {
+      ACTIONS.forEach(function(name){ frameNow[name]=rawPressed(name); });
+    }
+    function endFrame() {
+      ACTIONS.forEach(function(name){ framePrev[name]=!!frameNow[name]; });
+    }
+    function justPressed(name) { return !!frameNow[name] && !framePrev[name]; }
+    function justReleased(name) { return !frameNow[name] && !!framePrev[name]; }
+    function rawPressed(name) { return pressed(name); }
 
     function resetTouch() {
       Object.keys(touch).forEach(k => {
@@ -111,7 +134,7 @@
     }
 
     return {
-      keys, touch, bind, axisX, axisY, pressed, resetTouch,
+      keys, touch, bind, axisX, axisY, pressed, justPressed, justReleased, beginFrame, endFrame, resetTouch,
       dispose() { if (unbind) unbind(); }
     };
   }

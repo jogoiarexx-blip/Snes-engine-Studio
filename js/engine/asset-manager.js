@@ -110,6 +110,53 @@
     return Promise.all(jobs);
   }
 
+
+
+  /** Preload real do projeto para editor e jogo exportado.
+   * Imagens entram no cache SNESAssets e áudio é decodificado pelo SNESAudio.
+   * Retorna {total,done,ok,error,errors} e nunca derruba o jogo por asset opcional.
+   */
+  function projectManifest(project) {
+    const out = studioManifest(project && project.gameType).slice();
+    const seen = Object.create(null);
+    out.forEach(function (x) { seen[x.id] = true; });
+    ((project && project.studio && project.studio.assets) || []).forEach(function (a) {
+      if (!a || !a.id) return;
+      const src = a.dataUrl || a.url || a.src;
+      if (!src) return;
+      const kind = String(a.kind || a.type || '').toLowerCase();
+      const isAudio = kind === 'audio' || /^audio\//.test(a.mime || '') || /\.(ogg|mp3|wav|m4a)$/i.test(a.name || src);
+      const type = isAudio ? 'audio' : 'image';
+      const id = 'project:' + a.id;
+      if (seen[id]) return;
+      seen[id] = true;
+      out.push({ id: id, assetId: a.id, src: src, dataUrl: a.dataUrl || null, type: type, optional: true, name: a.name || a.id });
+    });
+    return out;
+  }
+
+  function preloadProject(project, onProgress) {
+    const list = projectManifest(project), total = list.length;
+    const result = { total: total, done: 0, ok: 0, error: 0, errors: [] };
+    if (!total) { if (onProgress) onProgress(0, 0, 1, result); return Promise.resolve(result); }
+    function mark(item, ok, error) {
+      result.done++; if (ok) result.ok++; else { result.error++; result.errors.push({ id:item.id, assetId:item.assetId, name:item.name, error:String(error && error.message || error || 'Falha') }); }
+      if (onProgress) onProgress(result.done, total, result.done / total, result);
+    }
+    const jobs = list.map(function (item) {
+      if (item.type === 'audio') {
+        const audio = global.SNESAudio;
+        if (!audio || !audio.loadBuffer) { mark(item, false, 'SNESAudio indisponível'); return Promise.resolve(null); }
+        return audio.loadBuffer(item.assetId || item.id, item.src).then(function(v){ mark(item, true); return v; }).catch(function(err){ mark(item, false, err); return null; });
+      }
+      return loadImage(item.id, item.src, item).then(function(v){ mark(item, !!v, v ? null : 'Imagem vazia'); return v; }).catch(function(err){ mark(item, false, err); return null; });
+    });
+    return Promise.all(jobs).then(function(){
+      if (global.SNESEvents) global.SNESEvents.emit('assets:project-ready', { project: project, stats: result });
+      return result;
+    });
+  }
+
   /** Manifest padrão do Studio */
   function studioManifest(gameType) {
     const list = [
@@ -188,6 +235,8 @@
     preload: preload,
     preloadStudio: preloadStudio,
     studioManifest: studioManifest,
+    projectManifest: projectManifest,
+    preloadProject: preloadProject,
     clear: clear,
     stats: stats,
     loadAtlas: loadAtlas

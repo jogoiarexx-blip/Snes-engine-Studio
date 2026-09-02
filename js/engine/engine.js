@@ -64,6 +64,8 @@
       rt.world.reindex();
     }
     RT.start(rt, window);
+    // Track checkpoint changes centrally so every genre can drive autosave.
+    { const cp=rt.player&&rt.player.checkpoint; rt.__checkpointSignature=cp?[cp.sceneId||rt.sceneId||'',cp.x??'',cp.y??''].join('|'):''; rt.__engineSceneId=rt.sceneId||rt.scene?.id||project.currentScene||''; }
     const token = ++playToken;
     active = { rt, RT, canvas, themes, enemyVariants, skeletonDraw, token };
     playing = true;
@@ -82,7 +84,7 @@
       document.body.appendChild(pad);
     }
     pad.style.display = '';
-    attachMobilePad(pad, rt, RT.mobileButtons || ['left','right','jump','attack','action']);
+    { const padButtons=(RT.mobileButtons||['left','right','jump','attack','action']).slice();if(!padButtons.includes('pause'))padButtons.push('pause');attachMobilePad(pad,rt,padButtons); }
 
     const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     if (global.SNESRender) global.SNESRender.setupCtx(ctx);
@@ -100,8 +102,27 @@
         (rt.world?.entities||rt.entities||[]).forEach(e=>global.SNESEntityComponents.syncToLegacy(e));
         if(rt.playerEntity){global.SNESEntityComponents.syncToLegacy(rt.playerEntity);Object.assign(rt.player,{x:rt.playerEntity.x,y:rt.playerEntity.y,hp:rt.playerEntity.hp,maxHp:rt.playerEntity.maxHp,speed:rt.playerEntity.speed,jump:rt.playerEntity.jump});}
       }
+      if(rt.input?.beginFrame)rt.input.beginFrame();
       if (Studio) { rt.__studioThemes = themes; Studio.beginFrame(rt, dt); }
       RT.tick(rt, themes, enemyVariants, dt, now);
+      {
+        const liveScene=rt.sceneId||rt.scene?.id||'';
+        if(liveScene&&rt.__engineSceneId&&liveScene!==rt.__engineSceneId){
+          const previous=rt.__engineSceneId;if(global.SNESEvents)global.SNESEvents.emit('scene:leaving',{rt:rt,token:token,project:project,previous:previous,current:liveScene});rt.__engineSceneId=liveScene;project.currentScene=liveScene;
+          if(global.SNESEntityWorld){rt.world=global.SNESEntityWorld.create({entities:rt.entities||(rt.entities=[])});for(const name of ['enemies','items','projectiles','bullets','pickups','npcs'])if(Array.isArray(rt[name]))rt.world.attachCollection(name,rt[name],false);rt.world.reindex();}
+          rt.__studio=null;
+          if(global.SNESEvents){const payload={rt:rt,token:token,project:project,previous:previous,current:liveScene,scene:rt.scene};global.SNESEvents.emit('scene:changed',payload);global.SNESEvents.emit('scene:entered',payload);}
+        }
+      }
+      {
+        const cp=rt.player&&rt.player.checkpoint;
+        const sig=cp?[cp.sceneId||rt.sceneId||'',cp.x??'',cp.y??''].join('|'):'';
+        if(sig && rt.__checkpointSignature && sig!==rt.__checkpointSignature){
+          const payload={rt:rt,token:token,project:project,checkpoint:Object.assign({},cp)};
+          if(global.SNESEvents)global.SNESEvents.emit('checkpoint:activated',payload);
+        }
+        if(sig)rt.__checkpointSignature=sig;
+      }
       if(global.SNESProfiler)global.SNESProfiler.mark('update');
       if(global.SNESEntityComponents){
         (rt.world?.entities||rt.entities||[]).forEach(e=>global.SNESEntityComponents.syncFromLegacy(e));
@@ -119,6 +140,7 @@
       if (genericCamera || (sh && (sh.x || sh.y))) ctx.restore();
       if (Studio) Studio.afterDraw(ctx, rt);
       if (Studio) Studio.endFrame(rt);
+      if(rt.input?.endFrame)rt.input.endFrame();
       if(global.SNESProfiler){global.SNESProfiler.mark('render');global.SNESProfiler.end({entities:rt.world?.entities?.length||0});}
       if (hooks.onFrame) { try { hooks.onFrame(rt, dt, now); } catch (e) { console.error('[SNESEngine] onFrame', e); } }
       if (global.SNESEvents) global.SNESEvents.emit('engine:frame', { rt: rt, token: token, dt: dt, now: now });

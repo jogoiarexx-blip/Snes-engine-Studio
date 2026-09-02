@@ -419,6 +419,23 @@
     };
   }
 
+
+  function suspend() {
+    const c = ensureContext();
+    if (currentBgm && currentBgm.html) { try { currentBgm.html.pause(); currentBgm._pausedByEngine = true; } catch (_) {} }
+    if (c && c.state === 'running' && c.suspend) return c.suspend().catch(function(){});
+    return Promise.resolve();
+  }
+
+  function resume() {
+    const c = ensureContext();
+    const p = c && c.state === 'suspended' && c.resume ? c.resume().catch(function(){}) : Promise.resolve();
+    if (currentBgm && currentBgm.html && currentBgm._pausedByEngine) { currentBgm._pausedByEngine = false; const r=currentBgm.html.play(); if(r&&r.catch)r.catch(function(){}); }
+    return p;
+  }
+
+  function currentBgmId() { return currentBgm ? currentBgm.id : null; }
+
   function dispose() {
     stopBgm(0);
     if (ctx && ctx.close) {
@@ -444,6 +461,9 @@
     setMuted: setMuted,
     toggleMute: toggleMute,
     stats: stats,
+    suspend: suspend,
+    resume: resume,
+    currentBgmId: currentBgmId,
     dispose: dispose,
     PROC_IDS: Object.keys(PROC),
     GAME_SFX: GAME_SFX

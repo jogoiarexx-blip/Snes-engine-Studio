@@ -1,3 +1,6 @@
+[build] export sources
+export-sources.js rebuilt from current source files
+[build] syntax + unit + browser smoke
 [1/4] JavaScript syntax
 [2/4] Stability unit tests
 PASS EventBus emite e remove listeners
@@ -9,8 +12,42 @@ PASS GameFlow não usa polling setInterval para vitória
 PASS Production tools incluem Cutscene/UI/Tile Cutter/Prefab overrides
 PASS GameFlow executa timeline e tema visual
 PASS HTML export preserva custom tiles
+PASS Cutscene de cena é executada antes do gameplay
+PASS Reimportar asset preserva ID existente
+PASS Tile Cutter limita recorte ao tamanho da imagem
+PASS ProjectModel migra para schema 10 e cria ID independente
+PASS EntityWorld spawn/query/destroy
+PASS Autotile calcula bitmask cardinal
+PASS SNES asset compiler produz tile 4bpp e dedupe
+PASS HTML export não usa polling para mobile pad
+PASS Asset preload não contém corrupção antiga
+PASS Inspector usa spriteRenderer canônico
+PASS ProjectStore não usa nome como ID de save
+PASS Components são fonte de verdade com accessors legados
+PASS EntityWorld inclui coleções legadas anexadas
+PASS CommandManager registra mutação já aplicada
+PASS DependencyGraph encontra referências profundas
+PASS Animator runtime tem prioridade sobre animação fixa do SpriteRenderer
+PASS SaveManager usa gateway SNESStorage
+PASS Animator usa frame do controller no desenho
+PASS Production Animator editor e Prefab Apply/Revert/Unpack existem
+PASS Cutscene suporta ações avançadas
 
-9 passed, 0 failed
+29 passed, 0 failed
+PASS TileMap migra map/layers para chunks canônicos
+PASS GameFlow usa StateMachine e StorageHub
+PASS Engine usa EntityWorld e sincronização Components
+PASS Camera pipeline aplica transform no gameplay
+PASS Parallax é renderizado no pipeline final
+PASS Editor V4 usa SNESAutotile e não contém variável s inválida na pintura
+PASS Undo/Redo principal usa CommandManager
+PASS HTML export inclui TileMap canônico
+PASS Runtime liga coleções específicas dos gêneros ao EntityWorld
+PASS Components usam bridge em vez de sincronização duplicada
+PASS Storage de editor/slots passa pelo gateway unificado
+
+11 integration passed, 0 failed
 [3/4] Rebuild export sources
 [4/4] HTML boot smoke test
 ALL TESTS PASSED
+[build] done
