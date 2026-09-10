@@ -1,0 +1,10 @@
+{
+  "version": "1.0.1",
+  "builtin": [
+    {"id":"terrain_pack","type":"tileset","url":"terrain-tiles-pack.png"},
+    {"id":"platform_pack","type":"tileset","url":"platform-tiles-pack.png"},
+    {"id":"skeleton","type":"spritesheet","url":"skeleton.png"},
+    {"id":"hero_blue_red","type":"spritesheet","url":"hero-blue-red-sheet.png"},
+    {"id":"ninja_kart","type":"spritesheet","url":"ninja-kart-sheet.png","atlas":"ninja-kart-atlas.json"}
+  ]
+}
