@@ -161,7 +161,7 @@ function enemyList(themeId){return ENEMY_VARIANTS[themeId]||ENEMY_VARIANTS.flore
 const clone=o=>JSON.parse(JSON.stringify(o));
 function blankMap(){return Array.from({length:ROWS},()=>Array(COLS).fill(0));}
 function sampleMap(){const m=blankMap();for(let x=0;x<COLS;x++){m[16][x]=2;m[17][x]=2}for(let x=2;x<8;x++)m[13][x]=1;for(let x=11;x<17;x++)m[11][x]=1;for(let x=21;x<27;x++)m[14][x]=1;for(let x=28;x<31;x++)m[10][x]=1;return m}
-function defaultProject(){const m=sampleMap();return {version:'1.0',schemaVersion:10,gameType:'platform',name:'Meu Jogo',settings:{type:'platform',width:512,height:288,tileSize:16},scenes:[{id:'scene1',name:'Fase 1',themeId:'floresta',map:m,layers:{background:blankMap(),ground:m.map(r=>r.slice()),foreground:blankMap()},entities:[{id:'player',type:'player',name:'Player',x:32,y:240,hp:3,speed:120,jump:300},{id:'slime1',type:'enemy',name:'Lobo',x:220,y:220,hp:1,speed:35},{id:'coin1',type:'item',name:'Moeda',x:320,y:180,hp:1},{id:'obj1',type:'object',name:'Pedra',sub:'pedra_obj',x:120,y:216}]}],currentScene:'scene1',world:{nodes:{},start:'scene1'}}}
+function defaultProject(){const m=sampleMap();return {version:'1.0.1',schemaVersion:10,gameType:'platform',name:'Meu Jogo',settings:{type:'platform',width:512,height:288,tileSize:16},scenes:[{id:'scene1',name:'Fase 1',themeId:'floresta',map:m,layers:{background:blankMap(),ground:m.map(r=>r.slice()),foreground:blankMap()},entities:[{id:'player',type:'player',name:'Player',x:32,y:240,hp:3,speed:120,jump:300},{id:'slime1',type:'enemy',name:'Lobo',x:220,y:220,hp:1,speed:35},{id:'coin1',type:'item',name:'Moeda',x:320,y:180,hp:1},{id:'obj1',type:'object',name:'Pedra',sub:'pedra_obj',x:120,y:216}]}],currentScene:'scene1',world:{nodes:{},start:'scene1'}}}
 
 function migrateProject(p){
   if(!p||typeof p!=='object')return defaultProject();
@@ -186,30 +186,32 @@ function migrateProject(p){
   if(!p.currentScene)p.currentScene=p.scenes[0].id;
   if(!p.world)p.world={nodes:{},start:p.currentScene};
   if(p.gameType==='kart-racing'&&!p.kartTrack&&window.KartTrack)p.kartTrack=window.KartTrack.generateDemoTrack();
-  p.version='1.0.0';p.schemaVersion=10;p.studio=p.studio||{};p.studio.version='1.0';
+  p.version='1.0.1';p.schemaVersion=10;p.studio=p.studio||{};p.studio.version='1.0.1';
   if(window.SNESTileMap)p.scenes.forEach(s=>window.SNESTileMap.normalizeScene(s));
   if(window.SNESEntityComponents)p.scenes.forEach(s=>(s.entities||[]).forEach(e=>window.SNESEntityComponents.ensure(e)));
   if(window.SNESProjectModel){const r=window.SNESProjectModel.migrate(p);p=r.project;}
   return p;
 }
 
-let project=migrateProject(defaultProject()),view='map',selectedTile=1,selectedEntity=null,playing=false,history=[],future=[],commandManager=null,pendingHistory=false;
+let project=migrateProject(defaultProject()),view='map',selectedTile=1,selectedEntity=null,playing=false,history=[],future=[],commandManager=null,pendingHistory=false,committedSnapshot=null;
+committedSnapshot=clone(project);
 function getCommandManager(){if(!commandManager&&window.SNESCommands)commandManager=window.SNESCommands.create();return commandManager}
 const $=id=>document.getElementById(id);const scene=()=>project.scenes.find(s=>s.id===project.currentScene)||project.scenes[0];
 function curTheme(){const t=THEMES[scene().themeId];return t||THEMES.floresta}
 function curTiles(){return curTheme().tiles}
 const canvas=document.getElementById('editor'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
 function mark(){ $('dirty').textContent='●'; $('dirty').style.color='#f7b32b' }
+function syncHistoryBaseline(){committedSnapshot=clone(project)}
 function pushHistory(){
  const mgr=getCommandManager();
  if(mgr){
-   // All legacy editor tools funnel through this transaction bridge. Multiple calls
-   // inside the same synchronous mutation are grouped into one undoable command.
+   // 1.0.1: transaction bridge works whether a tool calls pushHistory BEFORE or
+   // AFTER mutating the project. The baseline is the last committed project state.
    if(!pendingHistory){
-     pendingHistory=true;const before=clone(project);
-     queueMicrotask(()=>{pendingHistory=false;const after=clone(project);if(JSON.stringify(before)===JSON.stringify(after))return;const cmd={name:'Editar projeto',execute(){project=clone(after);renderAll()},undo(){project=clone(before);renderAll()}};mgr.recordApplied?mgr.recordApplied(cmd):(mgr.undoStack.push(cmd),mgr.redoStack.length=0);});
+     pendingHistory=true;const before=clone(committedSnapshot||project);
+     queueMicrotask(()=>{pendingHistory=false;const after=clone(project);if(JSON.stringify(before)===JSON.stringify(after)){committedSnapshot=clone(after);return}const cmd={name:'Editar projeto',execute(){project=clone(after);committedSnapshot=clone(after);renderAll()},undo(){project=clone(before);committedSnapshot=clone(before);renderAll()}};mgr.recordApplied?mgr.recordApplied(cmd):(mgr.undoStack.push(cmd),mgr.redoStack.length=0);committedSnapshot=clone(after);});
    }
- }else{const before=clone(project);history.push(before);if(history.length>30)history.shift();future=[]}
+ }else{const before=clone(committedSnapshot||project);history.push(before);if(history.length>30)history.shift();future=[];queueMicrotask(()=>syncHistoryBaseline())}
  mark();
 }
 function setStatus(s){$('status').textContent=s}
@@ -261,6 +263,38 @@ let mouse={x:0,y:0,down:false};canvas.addEventListener('mousemove',e=>{mouse.x=e
 function paint(){if(playing||view!=='map'||window.SNESStudio&&window.SNESStudio.placeMode)return;const r=canvas.getBoundingClientRect();const gx=Math.floor((mouse.x-r.left)*W/r.width/T),gy=Math.floor((mouse.y-r.top)*H/r.height/T);if(gx>=0&&gy>=0&&gx<COLS&&gy<ROWS&&scene().map[gy][gx]!==selectedTile){if(!paint.last||paint.last.x!==gx||paint.last.y!==gy){if(!paint.stroke){pushHistory();paint.stroke=true}scene().map[gy][gx]=selectedTile;paint.last={x:gx,y:gy};drawGrid()}}}
 window.addEventListener('mouseup',()=>{paint.stroke=false;paint.last=null});
 
+
+function sceneUid(){return 'scene_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
+function entityUid(prefix='e'){return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7)}
+function makeSceneTemplate(kind='auto'){
+ const id=sceneUid(), nm=blankMap(), bg=blankMap(), fg=blankMap();
+ const type=(project.gameType||project.settings?.type||'platform');
+ if(kind==='auto')kind=(type==='topdown'||type==='top-down'||type==='action-rpg')?'topdown':(type==='shooter'?'shooter':'platform');
+ const sc={id,name:'Fase '+(project.scenes.length+1),themeId:'floresta',map:nm,layers:{background:bg,ground:nm.map(r=>r.slice()),foreground:fg},entities:[],sceneType:'gameplay'};
+ const addPlayer=(x,y)=>sc.entities.push({id:entityUid('player'),type:'player',name:'Player',x,y,w:14,h:22,hp:3,maxHp:3,speed:120});
+ if(kind==='platform'||kind==='boss'){
+   for(let x=0;x<COLS;x++)sc.layers.ground[ROWS-2][x]=1;
+   addPlayer(48,(ROWS-2)*T-12);
+   if(kind==='boss'){sc.name='Boss '+(project.scenes.length+1);sc.sceneType='boss';sc.entities.push({id:entityUid('boss'),type:'enemy',name:'Boss',x:390,y:(ROWS-2)*T-18,w:28,h:36,hp:20,maxHp:20,damage:2,speed:35,boss:true});}
+ }else if(kind==='topdown'){
+   for(let x=0;x<COLS;x++){sc.layers.ground[0][x]=1;sc.layers.ground[ROWS-1][x]=1}
+   for(let y=0;y<ROWS;y++){sc.layers.ground[y][0]=1;sc.layers.ground[y][COLS-1]=1}
+   addPlayer(W/2,H/2);
+ }else if(kind==='shooter')addPlayer(W/2,H-48);
+ else if(kind==='cutscene'){sc.sceneType='cutscene';sc.name='Cutscene '+(project.scenes.length+1);sc.entities=[];}
+ else if(kind==='menu'){sc.sceneType='menu';sc.name='Menu '+(project.scenes.length+1);sc.entities=[];}
+ else if(kind==='empty'){sc.sceneType='gameplay'}
+ sc.map=sc.layers.ground;
+ if(window.SNESTileMap)window.SNESTileMap.normalizeScene(sc);
+ return sc;
+}
+function addSceneTemplate(kind){pushHistory();const sc=makeSceneTemplate(kind);project.scenes.push(sc);project.currentScene=sc.id;project.game=project.game||{};project.game.campaign=project.game.campaign||[];if(!project.game.campaign.includes(sc.id))project.game.campaign.push(sc.id);selectedEntity=null;renderAll();toast('Cena criada: '+sc.name)}
+function duplicateSceneById(id){const src=project.scenes.find(x=>x.id===id);if(!src)return;pushHistory();const cp=clone(src),oldId=cp.id,newId=sceneUid(),emap=new Map();cp.id=newId;cp.name=(src.name||'Cena')+' — Cópia';(cp.entities||[]).forEach(e=>{const old=e.id;e.id=entityUid(e.type||'e');emap.set(old,e.id)});for(const e of cp.entities||[]){for(const k of ['targetId','entityId','parentId','ownerId'])if(e[k]&&emap.has(e[k]))e[k]=emap.get(e[k])}
+ const idx=project.scenes.findIndex(x=>x.id===id);project.scenes.splice(idx+1,0,cp);const st=project.studio||{};const evMap=new Map();const oldEvents=(st.events||[]).filter(e=>e.sceneId===oldId);for(const ev of oldEvents){const ne=clone(ev),oe=ne.id;ne.id=entityUid('ev');ne.sceneId=newId;evMap.set(oe,ne.id);(st.events||(st.events=[])).push(ne)}for(const tr of (st.triggers||[]).filter(t=>t.sceneId===oldId)){const nt=clone(tr);nt.id=entityUid('tr');nt.sceneId=newId;if(nt.eventId&&evMap.has(nt.eventId))nt.eventId=evMap.get(nt.eventId);(st.triggers||(st.triggers=[])).push(nt)}
+ const cuts=project.game?.cutscenes?.scenes;if(cuts&&cuts[oldId])cuts[newId]=clone(cuts[oldId]);const camp=project.game?.campaign;if(Array.isArray(camp)){const ci=camp.indexOf(oldId);if(ci>=0)camp.splice(ci+1,0,newId)}project.currentScene=newId;selectedEntity=null;renderAll();toast('Cena duplicada')}
+function renameSceneById(id){const sc=project.scenes.find(x=>x.id===id);if(!sc)return;const name=prompt('Novo nome da cena:',sc.name||'Cena');if(!name||!name.trim())return;pushHistory();sc.name=name.trim();renderAll();toast('Cena renomeada')}
+function moveSceneById(id,delta){const i=project.scenes.findIndex(x=>x.id===id),j=i+delta;if(i<0||j<0||j>=project.scenes.length)return;pushHistory();const [sc]=project.scenes.splice(i,1);project.scenes.splice(j,0,sc);renderAll()}
+function deleteSceneById(id){if(project.scenes.length<=1)return toast('O projeto precisa ter pelo menos uma cena.');const sc=project.scenes.find(x=>x.id===id);if(!sc)return;if(!confirm('Excluir "'+(sc.name||id)+'"? Eventos, triggers e referências dessa cena serão limpos.'))return;pushHistory();project.scenes=project.scenes.filter(x=>x.id!==id);const fallback=project.scenes[0].id;project.currentScene=project.currentScene===id?fallback:project.currentScene;const st=project.studio||{};st.events=(st.events||[]).filter(e=>e.sceneId!==id);st.triggers=(st.triggers||[]).filter(t=>t.sceneId!==id);for(const s of project.scenes)for(const e of s.entities||[])if(e.targetScene===id)e.targetScene='';project.game=project.game||{};if(project.game.startScene===id)project.game.startScene=fallback;if(Array.isArray(project.game.campaign))project.game.campaign=project.game.campaign.filter(x=>x!==id);if(project.game.cutscenes?.scenes)delete project.game.cutscenes.scenes[id];selectedEntity=null;renderAll();toast('Cena excluída e referências limpas')}
 function renderRight(){const p=$('rightPanel');
 if(view==='map'){
  const tiles=curTiles();
@@ -292,11 +326,12 @@ if(view==='map'){
  const ep=$('enemyPreview');enemyList(scene().themeId).forEach(v=>{const wrap=document.createElement('div');wrap.className='objBtn';const c=document.createElement('canvas');c.width=c.height=32;c.style.width='32px';c.style.height='32px';const ec=c.getContext('2d');ec.imageSmoothingEnabled=false;const old=scene().themeId;drawEnemySprite(ec,{x:8,y:8,sub:v.id},theme);wrap.appendChild(c);const lbl=document.createElement('div');lbl.textContent=v.name;wrap.appendChild(lbl);ep.appendChild(wrap)});
  const op=$('objPreview');
  theme.objects.forEach(o=>{const wrap=document.createElement('div');wrap.className='objBtn';const c=document.createElement('canvas');c.width=c.height=32;c.style.width='32px';c.style.height='32px';const oc=c.getContext('2d');oc.imageSmoothingEnabled=false;oc.fillStyle=o.color;if(o.shape==='circle'){oc.beginPath();oc.arc(16,16,13,0,Math.PI*2);oc.fill()}else{oc.fillRect(3,3,26,26)}wrap.appendChild(c);const lbl=document.createElement('div');lbl.textContent=o.name;wrap.appendChild(lbl);op.appendChild(wrap)});
-}else if(view==='scenes'){
- p.innerHTML='<div class="card"><h3>CENAS</h3><button id="addScene">＋ Nova fase</button></div><div id="scenesPanel"></div>';
+ }else if(view==='scenes'){
+ const suggested=(project.gameType==='topdown'||project.gameType==='top-down'||project.gameType==='action-rpg')?'topdown':project.gameType==='shooter'?'shooter':'platform';
+ p.innerHTML='<div class="card"><h3>SCENE MANAGER 1.0.1</h3><div class="row"><select id="sceneTemplate"><option value="'+suggested+'">Template recomendado</option><option value="platform">Plataforma</option><option value="topdown">Top-down</option><option value="shooter">Shooter</option><option value="boss">Arena de Boss</option><option value="cutscene">Cutscene</option><option value="menu">Menu</option><option value="empty">Vazia</option></select><button id="addScene">＋ Criar</button></div><input id="sceneSearch" placeholder="Pesquisar cenas..." style="width:100%;margin-top:8px"><p class="badge">Duplique, renomeie, ordene e exclua cenas sem quebrar campanha/eventos.</p></div><div id="scenesPanel"></div>';
  const q=$('scenesPanel');
- project.scenes.forEach(s=>{const t=THEMES[s.themeId]||THEMES.floresta;const d=document.createElement('div');d.className='scene-item '+(s.id===project.currentScene?'active':'');d.innerHTML='<b>'+s.name+'</b><div class="badge">'+t.emoji+' '+t.name+' · '+s.map[0].length+'×'+s.map.length+' · '+s.entities.length+' entidades</div>';d.onclick=()=>{project.currentScene=s.id;selectedEntity=null;renderAll();mark()};q.appendChild(d)});
- $('addScene').onclick=()=>{pushHistory();const id='scene'+Date.now();const nm=blankMap();project.scenes.push({id,name:'Fase '+(project.scenes.length+1),themeId:'floresta',map:nm,layers:{background:blankMap(),ground:nm.map(r=>r.slice()),foreground:blankMap()},entities:[]});project.currentScene=id;renderAll()};
+ const renderScenes=()=>{const term=($('sceneSearch')?.value||'').toLowerCase();q.innerHTML='';project.scenes.forEach((s,idx)=>{if(term&&!String(s.name||'').toLowerCase().includes(term)&&!String(s.id).toLowerCase().includes(term))return;const t=THEMES[s.themeId]||THEMES.floresta,m=s.map||s.layers?.ground||blankMap(),d=document.createElement('div');d.className='scene-item '+(s.id===project.currentScene?'active':'');d.dataset.sceneId=s.id;d.innerHTML='<div style="display:flex;align-items:center;gap:6px"><b style="flex:1">'+esc(s.name)+'</b><span class="badge">'+esc(s.sceneType||'gameplay')+'</span></div><div class="badge">'+t.emoji+' '+t.name+' · '+((m[0]&&m[0].length)||COLS)+'×'+(m.length||ROWS)+' · '+(s.entities||[]).length+' entidades</div><div class="row scene-tools"><button data-act="up" title="Mover para cima">↑</button><button data-act="down" title="Mover para baixo">↓</button><button data-act="dup">Duplicar</button><button data-act="rename">Renomear</button><button data-act="delete">Excluir</button></div>';d.onclick=e=>{if(e.target.closest('button'))return;project.currentScene=s.id;selectedEntity=null;renderAll();mark()};d.querySelectorAll('[data-act]').forEach(b=>b.onclick=e=>{e.stopPropagation();const a=b.dataset.act;if(a==='up')moveSceneById(s.id,-1);else if(a==='down')moveSceneById(s.id,1);else if(a==='dup')duplicateSceneById(s.id);else if(a==='rename')renameSceneById(s.id);else if(a==='delete')deleteSceneById(s.id)});q.appendChild(d)})};
+ $('sceneSearch').oninput=renderScenes;$('addScene').onclick=()=>addSceneTemplate($('sceneTemplate').value);renderScenes();
 }else{
  p.innerHTML='<div class="card"><h3>CONFIGURAÇÕES DO PROJETO</h3><div class="row"><label>Nome</label><input id="pname" value="'+project.name+'"></div><div class="row"><label>Tipo</label><select id="ptype"><option value="platform">Plataforma 2D</option><option value="topdown">Top-down / RPG</option><option value="shooter">Shooter / Navinha</option></select></div><div class="row"><label>Resolução</label><span>512×288</span></div><p class="badge">O projeto guarda mapas, cenas, tema visual e entidades. O runtime lê esses dados para executar o jogo.</p></div><div class="card"><h3>ARQUITETURA</h3><div class="badge">Engine Core → Tilesets (V3) → Project Data → Editor → Runtime → Export</div></div>';
  $('pname').onchange=e=>{project.name=e.target.value;$('projectName').value=project.name;mark()};$('ptype').value=project.gameType||project.settings.type||'platform';$('ptype').onchange=e=>{const v=e.target.value;project.gameType=v;project.settings.type=v;mark();if(window.SNESStudioUI)window.SNESStudioUI.refreshGameTypeUI();toast('Estilo: '+v)};
@@ -323,14 +358,15 @@ else if(type==='object'){const o=theme.objects[0];e={...e,name:o.name,sub:o.id};
 scene().entities.push(e);selectedEntity=id;renderAll();editEntity(scene().entities.find(en=>en.id===id));}
 function renderSceneList(){const q=$('sceneList');q.innerHTML='';project.scenes.forEach(s=>{const b=document.createElement('button');b.className='scene-item '+(s.id===project.currentScene?'active':'');b.textContent=(THEMES[s.themeId]||THEMES.floresta).emoji+' '+s.name;b.onclick=()=>{project.currentScene=s.id;renderAll()};q.appendChild(b)})}
 function renderAll(){renderSceneList();renderRight();drawGrid();$('projectName').value=project.name;$('stopBtn').classList.toggle('hidden',!playing);$('playBtn').classList.toggle('hidden',playing);$('toolInfo').textContent='Mapa '+COLS+'×'+ROWS+' · 16px · Tema: '+curTheme().emoji+' '+curTheme().name}
-function undo(){const mgr=getCommandManager();if(mgr&&mgr.undoStack.length){mgr.undo();toast('Desfeito');return}if(!history.length)return;future.push(clone(project));project=history.pop();renderAll();toast('Desfeito')}
-function redo(){const mgr=getCommandManager();if(mgr&&mgr.redoStack.length){mgr.redo();toast('Refeito');return}if(!future.length)return;history.push(clone(project));project=future.pop();renderAll();toast('Refeito')}
+function undo(){const mgr=getCommandManager();if(mgr&&mgr.undoStack.length){mgr.undo();syncHistoryBaseline();toast('Desfeito');return}if(!history.length)return;future.push(clone(project));project=history.pop();syncHistoryBaseline();renderAll();toast('Desfeito')}
+function redo(){const mgr=getCommandManager();if(mgr&&mgr.redoStack.length){mgr.redo();syncHistoryBaseline();toast('Refeito');return}if(!future.length)return;history.push(clone(project));project=future.pop();syncHistoryBaseline();renderAll();toast('Refeito')}
 $('undoBtn').onclick=undo;$('redoBtn').onclick=redo;document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target?.tagName))return;const mod=e.ctrlKey||e.metaKey;if(mod&&!e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();undo()}else if(mod&&(e.key.toLowerCase()==='y'||(e.shiftKey&&e.key.toLowerCase()==='z'))){e.preventDefault();redo()}});$('clearBtn').onclick=()=>{if(confirm('Limpar a camada de terreno da cena?')){pushHistory();const s=scene();const m=blankMap();if(s.layers){s.layers.ground=m;s.map=m}else s.map=m;drawGrid()}};
-$('newBtn').onclick=()=>{if(confirm('Criar novo projeto?')){project=migrateProject(defaultProject());history=[];future=[];getCommandManager()?.clear();renderAll();toast('Novo projeto criado')}};
-$('saveBtn').onclick=()=>{try{if(window.SNESSave)SNESSave.saveEditor(project);else if(window.SNESStorage?.legacy)SNESStorage.legacy.set(KEY,JSON.stringify(project));else localStorage.setItem(KEY,JSON.stringify(project));$('dirty').textContent='✓';$('dirty').style.color='#62d38b';toast('Projeto salvo no navegador')}catch(e){toast('Falha ao salvar')}};
-$('loadBtn').onclick=()=>{try{let data=window.SNESSave?SNESSave.loadEditor():null;if(!data){const st=window.SNESStorage?.legacy;const raw=st?(st.get(KEY)||st.get('snes_engine_studio_project_v3')||st.get('snes_engine_studio_project_v2')):(localStorage.getItem(KEY)||localStorage.getItem('snes_engine_studio_project_v3')||localStorage.getItem('snes_engine_studio_project_v2'));data=raw?JSON.parse(raw):null}if(!data)return toast('Nenhum projeto salvo');project=migrateProject(data);renderAll();toast('Projeto carregado e migrado para 1.0')}catch(e){toast('Arquivo inválido')}};
+$('newBtn').onclick=()=>{if(confirm('Criar novo projeto?')){project=migrateProject(defaultProject());history=[];future=[];getCommandManager()?.clear();syncHistoryBaseline();renderAll();toast('Novo projeto criado')}};
+$('saveBtn').onclick=()=>{try{if(window.SNESSave)SNESSave.saveEditor(project);else if(window.SNESStorage?.legacy)SNESStorage.legacy.set(KEY,JSON.stringify(project));else throw new Error('StorageHub indisponível');$('dirty').textContent='✓';$('dirty').style.color='#62d38b';toast('Projeto salvo no navegador')}catch(e){toast('Falha ao salvar')}};
+$('loadBtn').onclick=()=>{try{let data=window.SNESSave?SNESSave.loadEditor():null;if(!data){const st=window.SNESStorage?.legacy;const raw=st?(st.get(KEY)||st.get('snes_engine_studio_project_v3')||st.get('snes_engine_studio_project_v2')):null;data=raw?JSON.parse(raw):null}if(!data)return toast('Nenhum projeto salvo');project=migrateProject(data);renderAll();toast('Projeto carregado e migrado para 1.0')}catch(e){toast('Arquivo inválido')}};
 function downloadFile(name,data,type){const blob=new Blob([data],{type:type||'application/octet-stream'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-$('exportBtn').onclick=()=>{const html=buildExport();downloadFile((project.name||'meu-jogo').replace(/[^a-z0-9-_]+/gi,'_')+'.html',html,'text/html');toast('Jogo HTML exportado')};
+function exportPreflight(){const issues=window.ProjectValidator?window.ProjectValidator.validate(project):[],errors=issues.filter(i=>i.level==='error');if(errors.length){toast('Exportação bloqueada: '+errors[0].msg);console.error('[Export Preflight]',errors);return false}const warnings=issues.filter(i=>i.level==='warning');if(warnings.length)console.warn('[Export Preflight] '+warnings.length+' aviso(s)',warnings);return true}
+$('exportBtn').onclick=()=>{if(!exportPreflight())return;const html=buildExport();downloadFile((project.name||'meu-jogo').replace(/[^a-z0-9-_]+/gi,'_')+'.html',html,'text/html');toast('Jogo HTML exportado')};
 $('exportSnesBtn').onclick=()=>exportSnesBundle();
 $('projectName').onchange=e=>{project.name=e.target.value;mark()};document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{view=b.dataset.view;document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderRight();drawGrid()});
 $('playBtn').onclick=()=>startPlay();$('stopBtn').onclick=()=>stopPlay();
@@ -475,4 +511,4 @@ function buildExport(){
  +'})();<\/script></body></html>';
 }
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-window.SNESStudio={get commandManager(){return getCommandManager()},get project(){return project},set project(v){project=migrateProject(v)},scene,curTheme,blankMap,pushHistory,renderAll,renderRight,drawGrid,drawEntityAt,toast,setStatus,downloadFile,buildExport,migrateProject,THEMES,ENEMY_VARIANTS,THEME_IDS,get selectedTile(){return selectedTile},set selectedTile(v){selectedTile=v},get selectedEntity(){return selectedEntity},set selectedEntity(v){selectedEntity=v},get view(){return view},set view(v){view=v},get playing(){return playing},get game(){return game},startPlay,stopPlay,_drawEntityAt:drawEntityAt,get gameType(){return project.gameType||'platform'}};renderAll();window.dispatchEvent(new CustomEvent("snesstudio:ready"));})();
+window.SNESStudio={get commandManager(){return getCommandManager()},get project(){return project},set project(v){project=migrateProject(v);syncHistoryBaseline()},scene,curTheme,blankMap,pushHistory,renderAll,renderRight,drawGrid,drawEntityAt,toast,setStatus,downloadFile,buildExport,migrateProject,makeSceneTemplate,addSceneTemplate,duplicateSceneById,renameSceneById,moveSceneById,deleteSceneById,THEMES,ENEMY_VARIANTS,THEME_IDS,get selectedTile(){return selectedTile},set selectedTile(v){selectedTile=v},get selectedEntity(){return selectedEntity},set selectedEntity(v){selectedEntity=v},get view(){return view},set view(v){view=v},get playing(){return playing},get game(){return game},startPlay,stopPlay,_drawEntityAt:drawEntityAt,get gameType(){return project.gameType||'platform'}};renderAll();window.dispatchEvent(new CustomEvent("snesstudio:ready"));})();

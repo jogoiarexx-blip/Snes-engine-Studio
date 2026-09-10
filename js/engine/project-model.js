@@ -1,6 +1,6 @@
-/** SNES Engine Studio 1.0 — canonical project model + migration gateway */
+/** SNES Engine Studio 1.0.1 — canonical project model + migration gateway */
 (function(g){'use strict';
-const SCHEMA=10, VERSION='1.0.0';
+const SCHEMA=10, VERSION='1.0.1';
 function clone(v){try{return structuredClone(v)}catch(_){return JSON.parse(JSON.stringify(v))}}
 function uid(prefix='id'){if(g.crypto&&crypto.randomUUID)return prefix+'_'+crypto.randomUUID();return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2)}
 function ensureId(p){if(!p.id||p.id===p.name)p.id=uid('proj');return p.id}

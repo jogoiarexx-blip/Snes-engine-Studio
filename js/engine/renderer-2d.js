@@ -1,0 +1,5 @@
+/** SNES Engine Studio 1.0.1 — centralized 2D renderer helpers and draw-call accounting. */
+(function(g){'use strict';
+class Renderer2D{constructor(ctx){this.ctx=ctx;this.drawCalls=0;this.camera=null}begin(camera){this.camera=camera||null;this.drawCalls=0;this.ctx.save();this.ctx.imageSmoothingEnabled=false;if(camera?.zoom){this.ctx.scale(camera.zoom,camera.zoom);this.ctx.translate(-(camera.x||0),-(camera.y||0))}return this}end(){this.ctx.restore();g.SNESProfiler?.counter?.('drawCalls',this.drawCalls);return this.drawCalls}image(img,sx,sy,sw,sh,dx,dy,dw,dh){if(!img?.complete||!img.naturalWidth)return false;this.ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);this.drawCalls++;return true}fill(style,x,y,w,h){this.ctx.fillStyle=style;this.ctx.fillRect(x,y,w,h);this.drawCalls++;return true}visible(x,y,w=1,h=1,pad=32){const c=this.camera;if(!c)return true;const vw=(c.viewW||512)/(c.zoom||1),vh=(c.viewH||288)/(c.zoom||1);return x+w>=c.x-pad&&y+h>=c.y-pad&&x<=c.x+vw+pad&&y<=c.y+vh+pad}}
+function create(ctx){return new Renderer2D(ctx)}g.SNESRenderer2D={Renderer2D,create};
+})(typeof window!=='undefined'?window:globalThis);

@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio 1.0 — Exportador HTML multi-runtime integrado
+ * SNES Engine Studio 1.0.1 — Exportador HTML multi-runtime integrado
  * Usa fontes embutidas em window.__SNES_EXPORT_SOURCES
  */
 (function () {
@@ -33,10 +33,12 @@
       src.renderCache || '',
       src.loadWorker || '',
       src.camera || '',
+      src.renderer2d || '',
       src.animation || '',
       src.input || '',
       src.eventBus || '',
       src.debugOverlay || '',
+      src.runtimeGuard || '',
       src.runtimeSession || '',
       src.entityComponents || '',
       src.entityWorld || '',
@@ -130,6 +132,8 @@ if(window.SNESGameFlow){
 })();
 <\/script></body></html>`;
   }
+
+  window.HTMLExporter = { build: buildHTML };
 
   function init() {
     const A = window.SNESStudio;

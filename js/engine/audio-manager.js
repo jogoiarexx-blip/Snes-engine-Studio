@@ -21,10 +21,12 @@
   let masterGain = null;
   let sfxGain = null;
   let bgmGain = null;
+  let ambientGain = null, uiGain = null, voiceGain = null;
   let unlocked = false;
   let muted = false;
-  let volMaster = 1, volSfx = 1, volBgm = 0.7;
+  let volMaster = 1, volSfx = 1, volBgm = 0.7, volAmbient = 0.7, volUi = 1, volVoice = 1;
   let currentBgm = null; // { id, source, gain, html? }
+  let currentAmbient = null;
   let enabled = true;
 
   function ensureContext() {
@@ -35,9 +37,8 @@
       ctx = new AC();
       masterGain = ctx.createGain();
       sfxGain = ctx.createGain();
-      bgmGain = ctx.createGain();
-      sfxGain.connect(masterGain);
-      bgmGain.connect(masterGain);
+      bgmGain = ctx.createGain(); ambientGain=ctx.createGain(); uiGain=ctx.createGain(); voiceGain=ctx.createGain();
+      sfxGain.connect(masterGain); bgmGain.connect(masterGain); ambientGain.connect(masterGain); uiGain.connect(masterGain); voiceGain.connect(masterGain);
       masterGain.connect(ctx.destination);
       applyVolumes();
     } catch (e) {
@@ -51,7 +52,7 @@
     const m = muted ? 0 : volMaster;
     masterGain.gain.value = m;
     sfxGain.gain.value = volSfx;
-    bgmGain.gain.value = volBgm;
+    bgmGain.gain.value = volBgm; if(ambientGain)ambientGain.gain.value=volAmbient;if(uiGain)uiGain.gain.value=volUi;if(voiceGain)voiceGain.gain.value=volVoice;
   }
 
   /** Desbloqueia áudio após gesto do usuário (política dos browsers) */
@@ -78,6 +79,9 @@
   function setMasterVolume(v) { volMaster = clamp01(v); applyVolumes(); }
   function setSfxVolume(v) { volSfx = clamp01(v); applyVolumes(); }
   function setBgmVolume(v) { volBgm = clamp01(v); applyVolumes(); }
+  function setChannelVolume(channel,v){v=clamp01(v);if(channel==='bgm')volBgm=v;else if(channel==='ambient')volAmbient=v;else if(channel==='ui')volUi=v;else if(channel==='voice')volVoice=v;else volSfx=v;applyVolumes()}
+  function channelGain(channel){return channel==='bgm'?bgmGain:channel==='ambient'?ambientGain:channel==='ui'?uiGain:channel==='voice'?voiceGain:sfxGain}
+  function channelVolume(channel){return channel==='bgm'?volBgm:channel==='ambient'?volAmbient:channel==='ui'?volUi:channel==='voice'?volVoice:volSfx}
   function setMuted(m) { muted = !!m; applyVolumes(); }
   function toggleMute() { setMuted(!muted); return muted; }
   function clamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -203,7 +207,7 @@
     if (!c || !PROC[id]) return;
     if (c.state === 'suspended') c.resume();
     const t0 = c.currentTime;
-    PROC[id](c, t0, sfxGain, opts);
+    PROC[id](c, t0, channelGain(opts?.channel||'sfx')||sfxGain, opts);
   }
 
   // —— Load / decode files ——
@@ -273,7 +277,7 @@
       const g = c.createGain();
       g.gain.value = opts.volume != null ? opts.volume : 1;
       src.connect(g);
-      g.connect(sfxGain);
+      g.connect(channelGain(opts.channel||'sfx')||sfxGain);
       if (opts.rate) src.playbackRate.value = opts.rate;
       src.start(0);
       return;
@@ -300,7 +304,7 @@
       }
     }
     el.src = tpl.src || tpl;
-    el.volume = (opts && opts.volume != null ? opts.volume : 1) * volSfx * (muted ? 0 : volMaster);
+    const ch=opts?.channel||'sfx';el.volume = (opts && opts.volume != null ? opts.volume : 1) * channelVolume(ch) * (muted ? 0 : volMaster);
     el.currentTime = 0;
     const p = el.play();
     if (p && p.catch) p.catch(function () {});
@@ -315,7 +319,8 @@
   function playBgm(id, opts) {
     opts = opts || {};
     if (!enabled) return;
-    stopBgm(0.05);
+    if(currentBgm&&currentBgm.id===id&&!opts.restart)return currentBgm;
+    stopBgm(opts.crossfade!=null?opts.crossfade:0.25);
     const c = ensureContext();
     const buf = bufferCache[id];
     if (c && buf && buf !== 'loading') {
@@ -384,6 +389,12 @@
     }
   }
 
+  function playAmbient(id,opts){opts=Object.assign({loop:true,fade:.5},opts||{});if(currentAmbient&&currentAmbient.id===id&&!opts.restart)return currentAmbient;stopAmbient(opts.crossfade!=null?opts.crossfade:.35);const c=ensureContext(),buf=bufferCache[id];if(c&&buf&&buf!=='loading'){const src=c.createBufferSource(),gain=c.createGain();src.buffer=buf;src.loop=opts.loop!==false;gain.gain.value=0;src.connect(gain);gain.connect(ambientGain||masterGain);src.start(0);gain.gain.linearRampToValueAtTime(opts.volume??1,c.currentTime+(opts.fade||.4));currentAmbient={id,source:src,gain};src.onended=()=>{if(currentAmbient?.source===src)currentAmbient=null};return currentAmbient}if(htmlCache[id]){const el=new Audio(htmlCache[id]);el.loop=opts.loop!==false;el.volume=(opts.volume??1)*volAmbient*(muted?0:volMaster);el.play()?.catch?.(()=>{});currentAmbient={id,html:el};return currentAmbient}return null}
+  function stopAmbient(fade=.3){if(!currentAmbient)return;const a=currentAmbient;currentAmbient=null;if(a.source&&a.gain&&ctx){const t=ctx.currentTime;try{a.gain.gain.cancelScheduledValues(t);a.gain.gain.linearRampToValueAtTime(0,t+fade);a.source.stop(t+fade+.05)}catch(_){}}if(a.html){try{a.html.pause()}catch(_){}}}
+  function crossfadeBgm(id,opts){return playBgm(id,Object.assign({crossfade:.5,fade:.5},opts||{}))}
+  function setSceneAudio(scene,opts){opts=opts||{};const a=scene?.audio||scene?.settings?.audio||{};if(a.bgm)crossfadeBgm(a.bgm,{volume:a.bgmVolume,fade:opts.fade??.5});else if(opts.stopMissing)stopBgm(opts.fade??.3);if(a.ambient)playAmbient(a.ambient,{volume:a.ambientVolume,fade:opts.fade??.5});else if(opts.stopMissing)stopAmbient(opts.fade??.3)}
+  function stopScene(fade=.2){stopAmbient(fade);stopBgm(fade)}
+
   // —— Game-oriented helpers ——
 
   const GAME_SFX = {
@@ -415,7 +426,8 @@
       buffers: buffers,
       pool: sfxPool.length,
       bgm: currentBgm ? currentBgm.id : null,
-      volumes: { master: volMaster, sfx: volSfx, bgm: volBgm }
+      ambient: currentAmbient ? currentAmbient.id : null,
+      volumes: { master: volMaster, sfx: volSfx, bgm: volBgm, ambient:volAmbient, ui:volUi, voice:volVoice }
     };
   }
 
@@ -442,7 +454,7 @@
       try { ctx.close(); } catch (e) {}
     }
     ctx = null;
-    masterGain = sfxGain = bgmGain = null;
+    masterGain = sfxGain = bgmGain = ambientGain = uiGain = voiceGain = null;
   }
 
   global.SNESAudio = {
@@ -458,6 +470,12 @@
     setMasterVolume: setMasterVolume,
     setSfxVolume: setSfxVolume,
     setBgmVolume: setBgmVolume,
+    setChannelVolume: setChannelVolume,
+    playAmbient: playAmbient,
+    stopAmbient: stopAmbient,
+    crossfadeBgm: crossfadeBgm,
+    setSceneAudio: setSceneAudio,
+    stopScene: stopScene,
     setMuted: setMuted,
     toggleMute: toggleMute,
     stats: stats,

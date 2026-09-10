@@ -111,9 +111,9 @@
       p.kartTrack = serializeTrack(project.kartTrack);
     }
     p.schemaVersion = 10;
-    p.version = '1.0.0';
+    p.version = '1.0.1';
     p.studio = p.studio || {};
-    p.studio.version = '1.0.0';
+    p.studio.version = '1.0.1';
     return p;
   }
 
@@ -122,9 +122,9 @@
     if(global.SNESProjectModel) data=global.SNESProjectModel.migrate(data).project;
     // Compatibility defaults after canonical migration.
     data.schemaVersion = 10;
-    data.version = '1.0.0';
+    data.version = '1.0.1';
     data.studio = data.studio || {};
-    data.studio.version = '1.0.0';
+    data.studio.version = '1.0.1';
     data.studio.assets = data.studio.assets || [];
     data.studio.prefabs = data.studio.prefabs || [];
     data.studio.events = data.studio.events || [];

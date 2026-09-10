@@ -35,6 +35,10 @@
       '<button id="v4autoToggle" title="Auto-tile ao pintar" class="">AT</button>' +
       '<button id="v4fill" title="Preencher área (clique)">▧ Balde</button>' +
       '<button id="v4select" title="Selecionar região">▣ Seleção</button>' +
+      '<button id="v4rect" title="Retângulo">▭ Retângulo</button>' +
+      '<button id="v4line" title="Linha">╱ Linha</button>' +
+      '<button id="v4eye" title="Conta-gotas">◉ Conta-gotas</button>' +
+      '<button id="v4stamp" title="Carimbo da seleção copiada">◆ Stamp</button>' +
       '<button id="v4copy">Copiar</button>' +
       '<button id="v4paste">Colar</button>' +
       '<button id="v4minus">−</button>' +
@@ -44,7 +48,7 @@
 
     let active = 'ground';
     let zoom = 1;
-    let mode = 'paint'; // paint | fill | select
+    let mode = 'paint'; // paint | fill | select | rect | line | eye | stamp
     let start = null;
     let selection = null;
     let clip = null;
@@ -76,6 +80,7 @@
         if (!s.layers.collision) s.layers.collision = A.blankMap();
       }
       s.map = s.layers.ground;
+      if(window.SNESTileMap){const tm=window.SNESTileMap.ensure(s);tm.layersMeta=tm.layersMeta||{};for(const k of Object.keys(visible)){tm.layersMeta[k]=Object.assign({visible:visible[k],locked:locked[k],opacity:1},tm.layersMeta[k]||{});visible[k]=tm.layersMeta[k].visible!==false;locked[k]=!!tm.layersMeta[k].locked;}}
       return s.layers;
     }
 
@@ -151,12 +156,14 @@
 
     document.getElementById('v4lock').onclick = () => {
       locked[active] = !locked[active];
+      const tm=window.SNESTileMap?.ensure?.(A.scene());if(tm?.layersMeta?.[active])tm.layersMeta[active].locked=locked[active];
       updateLockBtn();
       A.toast(locked[active] ? 'Camada bloqueada' : 'Camada desbloqueada');
     };
 
     function toggleVis(key, btnId) {
       visible[key] = !visible[key];
+      const tm=window.SNESTileMap?.ensure?.(A.scene());if(tm?.layersMeta?.[key])tm.layersMeta[key].visible=visible[key];
       document.getElementById(btnId).classList.toggle('active', visible[key]);
       A.drawGrid();
     }
@@ -206,6 +213,16 @@
       document.getElementById('v4fill').classList.remove('active');
       A.toast(mode === 'select' ? 'Arraste para selecionar' : 'Pincel ativado');
     };
+
+    function chooseMode(next,msg){mode=mode===next?'paint':next;['fill','select','rect','line','eye','stamp'].forEach(k=>document.getElementById('v4'+(k==='eye'?'eye':k))?.classList.toggle('active',mode===k));A.toast(mode===next?msg:'Pincel ativado')}
+    document.getElementById('v4rect').onclick=()=>chooseMode('rect','Retângulo: arraste no mapa');
+    document.getElementById('v4line').onclick=()=>chooseMode('line','Linha: arraste início → fim');
+    document.getElementById('v4eye').onclick=()=>chooseMode('eye','Conta-gotas: clique em um tile');
+    document.getElementById('v4stamp').onclick=()=>chooseMode('stamp','Stamp: clique para aplicar a região copiada');
+
+    function paintRect(m,a,b,value){const cells=[];for(let y=Math.min(a.y,b.y);y<=Math.max(a.y,b.y);y++)for(let x=Math.min(a.x,b.x);x<=Math.max(a.x,b.x);x++){m[y][x]=value;cells.push([x,y])}return cells}
+    function paintLine(m,a,b,value){const cells=[],dx=Math.abs(b.x-a.x),sx=a.x<b.x?1:-1,dy=-Math.abs(b.y-a.y),sy=a.y<b.y?1:-1;let x=a.x,y=a.y,err=dx+dy;for(;;){m[y][x]=value;cells.push([x,y]);if(x===b.x&&y===b.y)break;const e2=2*err;if(e2>=dy){err+=dy;x+=sx}if(e2<=dx){err+=dx;y+=sy}}return cells}
+    function pasteAt(m,x,y){if(!clip)return [];const cells=[];clip.forEach((r,dy)=>r.forEach((v,dx)=>{if(m[y+dy]&&m[y+dy][x+dx]!=null){m[y+dy][x+dx]=v;cells.push([x+dx,y+dy])}}));return cells}
 
     function pos(e) {
       const r = canvas.getBoundingClientRect();
@@ -262,6 +279,10 @@
         }
       }
       const p = pos(e);
+
+      if(mode==='eye'&&e.button===0){e.stopImmediatePropagation();A.selectedTile=activeMap()[p.y][p.x]||0;mode='paint';document.getElementById('v4eye').classList.remove('active');A.renderRight?.();A.toast('Tile '+A.selectedTile+' selecionado');return}
+      if(mode==='stamp'&&e.button===0){e.stopImmediatePropagation();if(!clip)return A.toast('Copie uma região antes de usar Stamp');A.pushHistory();const cells=pasteAt(activeMap(),p.x,p.y);if(autoOnPaint)autoTileRegion(activeMap(),cells);A.drawGrid();return}
+      if((mode==='rect'||mode==='line')&&e.button===0){e.stopImmediatePropagation();start=p;return}
 
       if (mode === 'fill' && e.button === 0) {
         e.stopImmediatePropagation();
@@ -336,15 +357,10 @@
     }, true);
 
     canvas.addEventListener('mouseup', e => {
-      if (mode !== 'select' || !start) return;
-      e.stopImmediatePropagation();
-      const p = pos(e);
-      selection = {
-        x1: Math.min(start.x, p.x), y1: Math.min(start.y, p.y),
-        x2: Math.max(start.x, p.x), y2: Math.max(start.y, p.y)
-      };
-      start = null;
-      A.toast('Seleção ' + (selection.x2 - selection.x1 + 1) + '×' + (selection.y2 - selection.y1 + 1));
+      if (!start || !['select','rect','line'].includes(mode)) return;
+      e.stopImmediatePropagation();const p=pos(e),origin=start;start=null;
+      if(mode==='select'){selection={x1:Math.min(origin.x,p.x),y1:Math.min(origin.y,p.y),x2:Math.max(origin.x,p.x),y2:Math.max(origin.y,p.y)};A.toast('Seleção '+(selection.x2-selection.x1+1)+'×'+(selection.y2-selection.y1+1));return}
+      if(locked[active])return A.toast('Camada bloqueada');const m=activeMap();A.pushHistory();const cells=mode==='rect'?paintRect(m,origin,p,A.selectedTile):paintLine(m,origin,p,A.selectedTile);if(autoOnPaint)autoTileRegion(m,cells);A.drawGrid();A.toast(mode==='rect'?'Retângulo aplicado':'Linha aplicada');
     }, true);
 
     document.getElementById('v4copy').onclick = () => {

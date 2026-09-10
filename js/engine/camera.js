@@ -1,63 +1,15 @@
-/**
- * SNES Engine Studio V7 — Câmera por estilo (mundo ≠ tela)
- */
-(function (global) {
-  'use strict';
-
-  function create(opts) {
-    opts = opts || {};
-    return {
-      x: 0, y: 0,
-      deadZoneX: opts.deadZoneX != null ? opts.deadZoneX : 40,
-      deadZoneY: opts.deadZoneY != null ? opts.deadZoneY : 30,
-      lookAhead: opts.lookAhead != null ? opts.lookAhead : 24,
-      mode: opts.mode || 'follow', // follow | fixed | autoscroll
-      scrollSpeed: opts.scrollSpeed || 40,
-      scrollDir: opts.scrollDir || 'none', // none | left | up
-      worldW: opts.worldW || 512,
-      worldH: opts.worldH || 288,
-      smooth: opts.smooth != null ? opts.smooth : 0.15,
-      pixelPerfect: opts.pixelPerfect !== false,
-      shakeEnabled: opts.shakeEnabled !== false,
-      viewW: opts.viewW || 512,
-      viewH: opts.viewH || 288
-    };
-  }
-
-  function update(cam, target, dt) {
-    if (!cam || !target) return;
-    if (cam.mode === 'fixed') return;
-
-    if (cam.mode === 'autoscroll') {
-      if (cam.scrollDir === 'left') cam.x += cam.scrollSpeed * dt;
-      if (cam.scrollDir === 'up') cam.y -= cam.scrollSpeed * dt;
-      clamp(cam);
-      return;
-    }
-
-    // follow with dead zone + look-ahead
-    const tx = target.x + (target.facing === 'right' ? cam.lookAhead : target.facing === 'left' ? -cam.lookAhead : 0);
-    const ty = target.y;
-    const cx = cam.x + cam.viewW / 2;
-    const cy = cam.y + cam.viewH / 2;
-    if (tx > cx + cam.deadZoneX) cam.x += (tx - (cx + cam.deadZoneX)) * Math.min(1, Math.max(1, 40 * (cam.smooth || .15)) * dt);
-    if (tx < cx - cam.deadZoneX) cam.x += (tx - (cx - cam.deadZoneX)) * Math.min(1, Math.max(1, 40 * (cam.smooth || .15)) * dt);
-    if (ty > cy + cam.deadZoneY) cam.y += (ty - (cy + cam.deadZoneY)) * Math.min(1, Math.max(1, 40 * (cam.smooth || .15)) * dt);
-    if (ty < cy - cam.deadZoneY) cam.y += (ty - (cy - cam.deadZoneY)) * Math.min(1, Math.max(1, 40 * (cam.smooth || .15)) * dt);
-    clamp(cam);
-  }
-
-  function clamp(cam) {
-    const maxX = Math.max(0, cam.worldW - cam.viewW);
-    const maxY = Math.max(0, cam.worldH - cam.viewH);
-    cam.x = Math.max(0, Math.min(maxX, cam.x));
-    cam.y = Math.max(0, Math.min(maxY, cam.y));
-  }
-
-  /** Converte mundo → tela */
-  function worldToScreen(cam, x, y) {
-    return { x: x - cam.x, y: y - cam.y };
-  }
-
-  global.SNESCamera = { create, update, clamp, worldToScreen };
-})(typeof window !== 'undefined' ? window : globalThis);
+/** SNES Engine Studio 1.0.1 — 2D camera with zones, zoom, shake and cinematic transitions. */
+(function(global){'use strict';
+function create(o={}){return{x:+o.x||0,y:+o.y||0,deadZoneX:o.deadZoneX??40,deadZoneY:o.deadZoneY??30,lookAhead:o.lookAhead??24,mode:o.mode||'follow',scrollSpeed:o.scrollSpeed||40,scrollDir:o.scrollDir||'none',worldW:o.worldW||512,worldH:o.worldH||288,smooth:o.smooth??.15,pixelPerfect:o.pixelPerfect!==false,shakeEnabled:o.shakeEnabled!==false,viewW:o.viewW||512,viewH:o.viewH||288,zoom:o.zoom||1,targetZoom:o.zoom||1,regions:o.regions||[],activeRegion:null,transition:null,shake:{time:0,duration:0,amplitude:0}}}
+function regionFor(cam,t){return(cam.regions||[]).find(r=>t.x>=r.x&&t.y>=r.y&&t.x<r.x+r.w&&t.y<r.y+r.h)||null}
+function limits(cam){const r=cam.activeRegion;return r?{minX:r.x,minY:r.y,maxX:r.x+r.w-cam.viewW/cam.zoom,maxY:r.y+r.h-cam.viewH/cam.zoom}:{minX:0,minY:0,maxX:cam.worldW-cam.viewW/cam.zoom,maxY:cam.worldH-cam.viewH/cam.zoom}}
+function clamp(cam){const l=limits(cam);cam.x=Math.max(l.minX,Math.min(Math.max(l.minX,l.maxX),cam.x));cam.y=Math.max(l.minY,Math.min(Math.max(l.minY,l.maxY),cam.y));return cam}
+function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2}
+function panTo(cam,x,y,duration=.5){cam.transition={fromX:cam.x,fromY:cam.y,toX:x,toY:y,time:0,duration:Math.max(.001,duration)};return cam}
+function shake(cam,amp=4,duration=.2){if(cam.shakeEnabled)cam.shake={time:duration,duration,amplitude:amp};return cam}
+function update(cam,target,dt){if(!cam)return;dt=Math.max(0,dt||0);if(target)cam.activeRegion=regionFor(cam,target);cam.zoom+=(cam.targetZoom-cam.zoom)*Math.min(1,dt*8);if(cam.transition){const tr=cam.transition;tr.time+=dt;const t=Math.min(1,tr.time/tr.duration),k=ease(t);cam.x=tr.fromX+(tr.toX-tr.fromX)*k;cam.y=tr.fromY+(tr.toY-tr.fromY)*k;if(t>=1)cam.transition=null;clamp(cam);return}if(cam.mode==='fixed'||!target){clamp(cam);return}if(cam.mode==='autoscroll'){if(cam.scrollDir==='left')cam.x+=cam.scrollSpeed*dt;if(cam.scrollDir==='up')cam.y-=cam.scrollSpeed*dt;clamp(cam);return}const vw=cam.viewW/cam.zoom,vh=cam.viewH/cam.zoom,tx=target.x+(target.facing==='right'?cam.lookAhead:target.facing==='left'?-cam.lookAhead:0),ty=target.y,cx=cam.x+vw/2,cy=cam.y+vh/2,k=Math.min(1,Math.max(1,40*(cam.smooth||.15))*dt);if(tx>cx+cam.deadZoneX)cam.x+=(tx-(cx+cam.deadZoneX))*k;if(tx<cx-cam.deadZoneX)cam.x+=(tx-(cx-cam.deadZoneX))*k;if(ty>cy+cam.deadZoneY)cam.y+=(ty-(cy+cam.deadZoneY))*k;if(ty<cy-cam.deadZoneY)cam.y+=(ty-(cy-cam.deadZoneY))*k;clamp(cam);if(cam.pixelPerfect){cam.x=Math.round(cam.x);cam.y=Math.round(cam.y)}}
+function transform(cam,ctx){ctx.scale(cam.zoom,cam.zoom);ctx.translate(-cam.x,-cam.y)}
+function shakeOffset(cam,dt=0){const s=cam.shake;if(!s||s.time<=0)return{x:0,y:0};s.time=Math.max(0,s.time-dt);const k=s.duration?s.time/s.duration:0,a=s.amplitude*k;return{x:(Math.random()*2-1)*a,y:(Math.random()*2-1)*a}}
+function worldToScreen(cam,x,y){return{x:(x-cam.x)*cam.zoom,y:(y-cam.y)*cam.zoom}}function screenToWorld(cam,x,y){return{x:x/cam.zoom+cam.x,y:y/cam.zoom+cam.y}}
+global.SNESCamera={create,update,clamp,panTo,shake,shakeOffset,transform,worldToScreen,screenToWorld};
+})(typeof window!=='undefined'?window:globalThis);

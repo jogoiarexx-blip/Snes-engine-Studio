@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),path=require('path');const R=path.resolve(__dirname,'..');let p=0,f=0;function t(n,fn){try{fn();console.log('PASS',n);p++}catch(e){console.error('FAIL',n,'-',e.message);f++}}function a(v,m){if(!v)throw new Error(m||'assert')}function txt(x){return fs.readFileSync(path.join(R,x),'utf8')}function load(x,c){vm.runInContext(txt(x),c,{filename:x})}
 const c=vm.createContext({console,globalThis:null,window:null,structuredClone:global.structuredClone,Math,Date,JSON});c.globalThis=c;c.window=c;load('js/engine/tilemap.js',c);
 t('TileMap migra map/layers para chunks canônicos',()=>{const s={map:Array.from({length:18},()=>Array(32).fill(0)),entities:[]};s.map[2][3]=7;c.SNESTileMap.normalizeScene(s);a(s.tilemap.chunks['0,0'].layers.ground[2][3]===7);a(s.chunks===s.tilemap.chunks);a(s.map===s.layers.ground)});
-t('GameFlow usa StateMachine e StorageHub',()=>{const x=txt('js/game/game-flow.js');a(x.includes('SNESGameStateMachine'));a(x.includes('SNESStorage?.saves'));a(x.includes('SNESStorage?.preferences'))});
+t('GameFlow usa StateMachine e StorageHub',()=>{const x=txt('js/game/game-flow.js');a(x.includes('SNESGameStateMachine'));a(x.includes('SNESStorage'));a(x.includes('hub?.saves'));a(x.includes('hub?.preferences'));a(!x.includes('localStorage'))});
 t('Engine usa EntityWorld e sincronização Components',()=>{const x=txt('js/engine/engine.js');a(x.includes("SNESEntityWorld.create({entities:rt.entities"));a(x.includes('syncToLegacy'));a(x.includes('syncFromLegacy'))});
 t('Camera pipeline aplica transform no gameplay',()=>{const x=txt('js/engine/engine.js');a(x.includes('rt.__cameraPipeline'));a(x.includes('rt.camera.x'));a(txt('js/runtimes/platform/platform-runtime.js').includes('!rt.__skipClear'))});
 t('Parallax é renderizado no pipeline final',()=>{const x=txt('js/engine/studio-runtime.js');a(x.includes("globalCompositeOperation='destination-over'"));a(x.includes('drawParallax(ctx,rt)'))});
@@ -11,7 +11,7 @@ t('HTML export inclui TileMap canônico',()=>{const x=txt('js/export/html-export
 
 t('Runtime liga coleções específicas dos gêneros ao EntityWorld',()=>{const x=txt('js/engine/engine.js');a(x.includes("['enemies','items','projectiles','bullets','pickups','npcs']"));a(x.includes('attachCollection'))});
 t('Components usam bridge em vez de sincronização duplicada',()=>{const x=txt('js/engine/entity-components.js');a(x.includes("defineBridge(e,'hp'"));a(x.includes("defineBridge(e,'spriteAsset'"))});
-t('Storage de editor/slots passa pelo gateway unificado',()=>{a(txt('js/engine/save-manager.js').includes('SNESStorage?.legacy'));a(txt('js/editor/recovery.js').includes('SNESStorage?.legacy'));a(txt('js/editor/controls-panel.js').includes('SNESStorage?.preferences'))});
+t('Storage de editor/slots passa pelo gateway unificado',()=>{const sm=txt('js/engine/save-manager.js');a(sm.includes('global.SNESStorage'));a(!sm.includes('localStorage'));a(txt('js/editor/recovery.js').includes('SNESStorage?.legacy'));a(txt('js/editor/controls-panel.js').includes('SNESStorage?.preferences'))});
 
 
 t('Game Flow faz preload real e transição antes da cena',()=>{const x=txt('js/game/game-flow.js');a(x.includes('async function preloadGame()'));a(x.includes('preloadProject(project'));a(x.includes('withTransition'));a(x.includes("setScreen('loading')"))});
@@ -35,4 +35,9 @@ t('Validador cobre qualidade, cutscene, prefab e custom tiles',()=>{const v=txt(
 t('Missões estão no editor, save e HTML exportado',()=>{const g=txt('js/game/game-flow.js'),ed=txt('js/editor/game-flow-editor.js'),ex=txt('js/export/html-exporter.js');a(g.includes('SNESQuestSystem'));a(g.includes('quests:state.questSystem'));a(ed.includes('MISSÕES'));a(ex.includes('src.questSystem'))});
 t('Debug overlay acompanha runtime e é exportado',()=>{const d=txt('js/engine/debug-overlay.js'),ex=txt('js/export/html-exporter.js');a(d.includes("runtime:started"));a(d.includes("engine:frame"));a(ex.includes('src.debugOverlay'))});
 
+
+t('Loading por cena está ligado ao GameFlow e export bundle',()=>{const gf=txt('js/game/game-flow.js'),ex=txt('js/export/export-sources.js');a(gf.includes('await preloadScene(target)'));a(gf.includes('sceneMinDuration'));a(ex.includes('preloadCore'));a(ex.includes('preloadScene'));});
+
+t('Runtime Guard também é incluído no HTML exportado',()=>{const b=txt('js/export/export-sources.js'),h=txt('js/export/html-exporter.js');a(b.includes('"runtimeGuard"'),'bundle guard missing');a(h.includes('src.runtimeGuard'),'export guard missing')});
+t('Scene Manager mantém campanha e referências ao duplicar/excluir',()=>{const x=txt('js/core.js');a(x.includes('camp.splice(ci+1,0,newId)'),'duplicate campaign integration');a(x.includes("project.game.campaign=project.game.campaign.filter(x=>x!==id)"),'delete campaign cleanup');a(x.includes("if(e.targetScene===id)e.targetScene=''"),'door cleanup')});
 console.log(`\n${p} integration passed, ${f} failed`);process.exit(f?1:0)

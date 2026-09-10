@@ -1,14 +1,10 @@
-/** Unified storage gateway: projects, game saves, preferences and assets. */
+/** SNES Engine Studio 1.0.1 — centralized StorageHub. New modules must use this gateway. */
 (function(g){'use strict';
-const key=(ns,id)=>'snes:'+ns+':'+id;function ls(){try{return localStorage}catch(_){return null}}
-const json={get(ns,id,fallback=null){try{const v=ls()?.getItem(key(ns,id));return v?JSON.parse(v):fallback}catch(_){return fallback}},set(ns,id,v){try{ls()?.setItem(key(ns,id),JSON.stringify(v));return v}catch(_){return null}},remove(ns,id){try{ls()?.removeItem(key(ns,id));return true}catch(_){return false}}};
-const legacy={get(id,fallback=null){try{const v=ls()?.getItem(id);return v==null?fallback:v}catch(_){return fallback}},set(id,v){try{ls()?.setItem(id,v);return true}catch(_){return false}},remove(id){try{ls()?.removeItem(id);return true}catch(_){return false}}};
-const hub={
- projects:{get:id=>json.get('project',id),set:(id,v)=>json.set('project',id,v),remove:id=>json.remove('project',id)},
- saves:{get:id=>json.get('save',id),set:(id,v)=>json.set('save',id,v),remove:id=>json.remove('save',id)},
- preferences:{get:(id,d)=>json.get('pref',id,d),set:(id,v)=>json.set('pref',id,v),remove:id=>json.remove('pref',id)},
- get assets(){return g.SNESAssetDatabase||g.SNESAssetDB||null},
- raw:json,legacy
-};
+const PREFIX='snes',memory=new Map();function key(ns,id){return PREFIX+':'+ns+':'+id}function ls(){try{return globalThis.localStorage||null}catch(_){return null}}
+function rawGet(k){try{const s=ls();return s?s.getItem(k):(memory.has(k)?memory.get(k):null)}catch(_){return memory.get(k)??null}}
+function rawSet(k,v){try{const s=ls();if(s)s.setItem(k,v);else memory.set(k,v);return true}catch(_){memory.set(k,v);return true}}
+function rawRemove(k){try{ls()?.removeItem(k)}catch(_){}memory.delete(k);return true}
+function namespace(ns){return{get(id,fallback=null){try{const v=rawGet(key(ns,id));return v==null?fallback:JSON.parse(v)}catch(_){return fallback}},set(id,v){return rawSet(key(ns,id),JSON.stringify(v))?v:null},remove(id){return rawRemove(key(ns,id))},has(id){return rawGet(key(ns,id))!=null},keys(){const pre=key(ns,'');const out=[];try{const s=ls();if(s)for(let i=0;i<s.length;i++){const k=s.key(i);if(k?.startsWith(pre))out.push(k.slice(pre.length))}}catch(_){}for(const k of memory.keys())if(k.startsWith(pre)&&!out.includes(k.slice(pre.length)))out.push(k.slice(pre.length));return out},clear(){for(const id of this.keys())this.remove(id)}}}
+const hub={projects:namespace('project'),saves:namespace('save'),preferences:namespace('pref'),recovery:namespace('recovery'),assetsMeta:namespace('assetmeta'),raw:{get:(ns,id,d)=>namespace(ns).get(id,d),set:(ns,id,v)=>namespace(ns).set(id,v),remove:(ns,id)=>namespace(ns).remove(id)},legacy:{get:(id,d=null)=>rawGet(id)??d,set:(id,v)=>rawSet(id,v),remove:rawRemove},get assets(){return g.SNESAssetDatabase||g.SNESAssetDB||null},migrateLegacy(map){let n=0;for(const [oldKey,target] of Object.entries(map||{})){const raw=rawGet(oldKey);if(raw==null)continue;const ns=hub[target.ns];if(!ns||ns.has(target.id))continue;try{ns.set(target.id,target.raw?raw:JSON.parse(raw));n++}catch(_){}}return n}};
 g.SNESStorage=hub;
 })(typeof window!=='undefined'?window:globalThis);

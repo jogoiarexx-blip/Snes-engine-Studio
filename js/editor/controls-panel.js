@@ -23,7 +23,7 @@
 
   function loadMap() {
     try {
-      const raw=pref()?pref().get(STORAGE_KEY,null):(window.SNESStorage?.legacy?.get('snes_v09_controls')||localStorage.getItem('snes_v09_controls'));
+      const raw=pref()?pref().get(STORAGE_KEY,null):(window.SNESStorage?.legacy?.get('snes_v09_controls'));
       const o = typeof raw==='string'?JSON.parse(raw||'null'):raw;
       return o || JSON.parse(JSON.stringify(DEFAULTS));
     } catch (_) {
@@ -32,7 +32,7 @@
   }
 
   function saveMap(map) {
-    if(pref())pref().set(STORAGE_KEY,map);else (window.SNESStorage?.legacy?.set('snes_v09_controls',JSON.stringify(map))||localStorage.setItem('snes_v09_controls',JSON.stringify(map)));
+    if(pref())pref().set(STORAGE_KEY,map);else window.SNESStorage?.legacy?.set('snes_v09_controls',JSON.stringify(map));
     applyToInput(map);
   }
 
@@ -82,7 +82,7 @@
       document.getElementById('ctrlSave').onclick = () => {
         saveMap(map);
         const op = document.getElementById('touchOp').value;
-        if(pref())pref().set('touch_op',op);else if(window.SNESStorage?.legacy)SNESStorage.legacy.set('snes_touch_op',op);else localStorage.setItem('snes_touch_op',op);
+        if(pref())pref().set('touch_op',op);else if(window.SNESStorage?.legacy)SNESStorage.legacy.set('snes_touch_op',op);else window.SNESLogger?.warn?.('storage','StorageHub indisponível para preferência touch');
         A.toast('Controles salvos');
         m.classList.add('hidden');
       };

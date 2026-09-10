@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio 1.0 — Tela inicial com recentes / autosave
+ * SNES Engine Studio 1.0.1 — Tela inicial com recentes / autosave
  */
 (function () {
   'use strict';

@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio 1.0 — núcleo integrado de runtime.
+ * SNES Engine Studio 1.0.1 — núcleo integrado de runtime.
  */
 (function (global) {
   'use strict';
@@ -94,6 +94,7 @@
 
     function loop(now) {
       if (!playing) return;
+      try {
       if(global.SNESProfiler)global.SNESProfiler.begin();
       const dt = Math.min(0.033, last ? (now - last) / 1000 : 1 / 60);
       last = now;
@@ -104,7 +105,9 @@
       }
       if(rt.input?.beginFrame)rt.input.beginFrame();
       if (Studio) { rt.__studioThemes = themes; Studio.beginFrame(rt, dt); }
+      if(global.SNESProfiler)global.SNESProfiler.startSpan('runtime');
       RT.tick(rt, themes, enemyVariants, dt, now);
+      if(global.SNESProfiler)global.SNESProfiler.endSpan('runtime');
       {
         const liveScene=rt.sceneId||rt.scene?.id||'';
         if(liveScene&&rt.__engineSceneId&&liveScene!==rt.__engineSceneId){
@@ -136,7 +139,9 @@
       rt.__cameraPipeline=!!genericCamera;rt.__skipClear=!!genericCamera;
       if(genericCamera)ctx.clearRect(0,0,canvas.width,canvas.height);
       if (genericCamera || (sh && (sh.x || sh.y))) { ctx.save(); ctx.translate((sh?.x||0)-(genericCamera?(rt.camera.x||0):0),(sh?.y||0)-(genericCamera?(rt.camera.y||0):0)); }
+      if(global.SNESProfiler)global.SNESProfiler.startSpan('genreRender');
       RT.drawFrame(ctx, rt, themes, enemyVariants, skeletonDraw);
+      if(global.SNESProfiler)global.SNESProfiler.endSpan('genreRender');
       if (genericCamera || (sh && (sh.x || sh.y))) ctx.restore();
       if (Studio) Studio.afterDraw(ctx, rt);
       if (Studio) Studio.endFrame(rt);
@@ -157,6 +162,14 @@
         }
       } else if (!nextEnd) endState = '';
       raf = requestAnimationFrame(loop);
+      } catch (err) {
+        playing = false;
+        if (raf) cancelAnimationFrame(raf);
+        const info = global.SNESRuntimeGuard ? global.SNESRuntimeGuard.handle(err,'engine:frame',{rt:rt,project:project,token:token}) : null;
+        if (global.SNESEvents) global.SNESEvents.emit('engine:stopped',{rt:rt,token:token,reason:'error',error:info||err});
+        const pad=document.getElementById('editorPad');if(pad)pad.style.display='none';
+        return;
+      }
     }
     raf = requestAnimationFrame(loop);
     return active;
@@ -166,7 +179,7 @@
     if (!playing) return;
     playing = false;
     if (raf) cancelAnimationFrame(raf);
-    if (active && active.RT) active.RT.stop(active.rt);
+    if (active && active.RT) { try{ active.rt?.input?.dispose?.(); }catch(_){} try{ active.rt?.world?.dispose?.(); }catch(_){} try{ active.RT.stop(active.rt); }catch(e){ console.error('[SNESEngine] stop',e); } try{ global.SNESAudio?.stopScene?.(); }catch(_){} }
     const pad = document.getElementById('editorPad');
     if (pad) pad.style.display = 'none';
     const was = active;

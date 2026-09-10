@@ -1,5 +1,5 @@
 /**
- * SNES Engine Studio 1.0 Workspace Extension
+ * SNES Engine Studio 1.0.1 Workspace Extension
  * Non-destructive editor upgrade: assets, prefabs, visual events, camera,
  * parallax, animation, particles/lighting, boss designer and debug overlays.
  */
@@ -15,7 +15,7 @@ function studio(){
  const p=A.project;
  p.studio=p.studio||{};
  const s=p.studio;
- s.version='1.0';
+ s.version='1.0.1';
  s.assets=s.assets||[];
  s.prefabs=s.prefabs||defaultPrefabs();
  s.events=s.events||[];
@@ -37,7 +37,7 @@ function studio(){
 function ensureBuiltInHero(s){
  const data=window.__HERO_BLUE_RED_SHEET_DATAURL||'';
  const assetId='builtin_hero_blue_red';
- if(!s.assets.some(a=>a.id===assetId))s.assets.push({id:assetId,name:'Herói Azul/Vermelho — Sprite Sheet',kind:'image',type:'image/png',size:0,dataUrl:data||null,url:data?'':'assets/hero-blue-red-sheet.png',builtin:true,placeholder:false});
+ if(!s.assets.some(a=>a.id===assetId))s.assets.push({id:assetId,name:'Herói Azul/Vermelho — Sprite Sheet',kind:'image',type:'image/png',size:0,dataUrl:data||null,url:data?'':(window.__HERO_BLUE_RED_SHEET_URL||'assets/hero-blue-red-sheet.png'),builtin:true,placeholder:false});
  else {const a=s.assets.find(a=>a.id===assetId);if(data&&!a.dataUrl)a.dataUrl=data;a.builtin=true;}
  const presets=[
   {id:'hero_blue_red_idle',name:'Herói Azul/Vermelho — Idle',fps:3,loop:true,assetId,frames:[[13,1,119,178],[147,4,113,176]]},
@@ -71,7 +71,7 @@ function boot(){
 }
 function modernizeTop(){
  const top=$('.top'); if(!top)return;
- const logo=$('.logo'); if(logo)logo.innerHTML='<span class="s10-mark">◆</span><span><b>SNES ENGINE</b><small>STUDIO 1.0</small></span>';
+ const logo=$('.logo'); if(logo)logo.innerHTML='<span class="s10-mark">◆</span><span><b>SNES ENGINE</b><small>STUDIO 1.0.1</small></span>';
  const mode=document.createElement('button'); mode.id='s10Mode';mode.className='s10-mode';mode.textContent='⚙ Avançado';mode.title='Alternar interface simples/avançada';
  mode.onclick=()=>{simpleMode=!simpleMode;document.body.classList.toggle('s10-simple',simpleMode);mode.textContent=simpleMode?'✨ Simples':'⚙ Avançado';};
  const inspect=document.createElement('button');inspect.id='s10Inspect';inspect.className='s10-icon';inspect.textContent='☷';inspect.title='Abrir ferramentas';inspect.onclick=()=>document.body.classList.toggle('s10-dock-open');
@@ -79,13 +79,13 @@ function modernizeTop(){
 }
 function modernizeNav(){
  const left=$('.left');if(!left)return;
- const sec=document.createElement('div');sec.className='section s10-advanced-section';sec.textContent='STUDIO 1.0';
+ const sec=document.createElement('div');sec.className='section s10-advanced-section';sec.textContent='STUDIO 1.0.1';
  const names=[['assets','🗂','Assets'],['prefabs','🧩','Prefabs'],['events','⚡','Eventos'],['animation','🎞','Animação'],['world','🌎','Mundo'],['fx','✨','FX / Luz'],['debug','🧪','Debug']];
  left.appendChild(sec);
  names.forEach(([id,ic,n])=>{const b=document.createElement('button');b.className='nav s10-nav s10-advanced';b.innerHTML=`<span class="navIcon">${ic}</span><span class="navLabel">${n}</span>`;b.onclick=()=>{activeTab=id;document.body.classList.add('s10-dock-open');renderDock()};left.appendChild(b)});
 }
 function buildDock(){
- const d=document.createElement('aside');d.id='studio10Dock';d.className='s10-dock';d.innerHTML=`<div class="s10-dock-head"><div><strong>STUDIO 1.0</strong><small id="s10DockSub">Ferramentas</small></div><button id="s10DockClose">×</button></div><div class="s10-tabs"></div><div id="s10DockBody" class="s10-dock-body"></div>`;
+ const d=document.createElement('aside');d.id='studio10Dock';d.className='s10-dock';d.innerHTML=`<div class="s10-dock-head"><div><strong>STUDIO 1.0.1</strong><small id="s10DockSub">Ferramentas</small></div><button id="s10DockClose">×</button></div><div class="s10-tabs"></div><div id="s10DockBody" class="s10-dock-body"></div>`;
  $('.main').appendChild(d);$('#s10DockClose').onclick=()=>document.body.classList.remove('s10-dock-open');
  const tabs=[['assets','🗂'],['prefabs','🧩'],['events','⚡'],['animation','🎞'],['world','🌎'],['fx','✨'],['debug','🧪']];
  $('.s10-tabs',d).innerHTML=tabs.map(([i,x])=>`<button data-tab="${i}" title="${i}">${x}</button>`).join('');
@@ -105,11 +105,11 @@ function select(label,id,val,opts){return `<label class="s10-field"><span>${labe
 function renderAssets(body){
  const s=studio();
  body.innerHTML=section('Importar',`<div class="s10-drop" id="s10Drop"><b>Solte sprites, backgrounds e áudio aqui</b><small>PNG, JPG, WEBP, GIF, WAV, MP3, OGG, JSON</small><button id="s10Import">＋ Escolher arquivos</button><input id="s10File" type="file" multiple accept="image/*,audio/*,.json" hidden></div>`)+
- section('Biblioteca',`<div class="s10-search"><input id="s10AssetSearch" placeholder="Pesquisar assets..."><select id="s10AssetKind"><option value="">Todos</option><option>image</option><option>audio</option><option>json</option></select></div><div id="s10AssetGrid" class="s10-asset-grid"></div>`)+
+ section('Biblioteca',`<div class="s10-search"><input id="s10AssetSearch" placeholder="Pesquisar assets..."><select id="s10AssetKind"><option value="">Todos</option><option>image</option><option>audio</option><option>json</option></select><select id="s10AssetSort"><option value="name">Nome</option><option value="usage">Mais usados</option><option value="size">Maior arquivo</option></select></div><div id="s10AssetGrid" class="s10-asset-grid"></div>`)+
  section('Manifest',`<button id="s10Manifest">Gerar assets.json</button><small class="s10-note">Os arquivos importados ficam como referência de projeto. Você pode substituir os sprites depois mantendo os nomes.</small>`);
  const fi=$('#s10File');$('#s10Import').onclick=()=>fi.click();fi.onchange=()=>importFiles(fi.files);
  const drop=$('#s10Drop');['dragenter','dragover'].forEach(e=>drop.addEventListener(e,x=>{x.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(e=>drop.addEventListener(e,x=>{x.preventDefault();drop.classList.remove('over')}));drop.addEventListener('drop',e=>importFiles(e.dataTransfer.files));
- $('#s10AssetSearch').oninput=drawAssets;$('#s10AssetKind').onchange=drawAssets;$('#s10Manifest').onclick=downloadManifest;drawAssets();
+ $('#s10AssetSearch').oninput=drawAssets;$('#s10AssetKind').onchange=drawAssets;$('#s10AssetSort').onchange=drawAssets;$('#s10Manifest').onclick=downloadManifest;drawAssets();
 }
 async function importFiles(files){
  const s=studio(), list=[...files];
@@ -131,15 +131,15 @@ async function importFiles(files){
 }
 function drawAssets(){
  const grid=$('#s10AssetGrid');if(!grid)return;const q=($('#s10AssetSearch')?.value||'').toLowerCase(),k=$('#s10AssetKind')?.value||'';
- const arr=studio().assets.filter(a=>(!k||a.kind===k)&&(!q||a.name.toLowerCase().includes(q)));
- grid.innerHTML=arr.length?arr.map(a=>`<div class="s10-asset" data-id="${a.id}"><div class="s10-thumb">${a.kind==='image'&&(a.dataUrl||a.url)?`<img src="${a.dataUrl||a.url}">`:a.kind==='audio'?'♫':'{}'}</div><b title="${a.name}">${a.name}</b><small>${a.kind} · ${Math.max(1,Math.round((a.size||0)/1024))} KB</small><button class="s10-del">×</button></div>`).join(''):'<div class="s10-empty">Nenhum asset ainda. Importe depois seus sprites e backgrounds.</div>';
+ let arr=studio().assets.filter(a=>(!k||a.kind===k)&&(!q||a.name.toLowerCase().includes(q)));const usage=a=>window.SNESDependencyGraph?.refs?.(A.project,a.id)?.length||0;const sort=$('#s10AssetSort')?.value||'name';arr=arr.slice().sort((a,b)=>sort==='usage'?usage(b)-usage(a):sort==='size'?(b.size||0)-(a.size||0):String(a.name).localeCompare(String(b.name)));
+ grid.innerHTML=arr.length?arr.map(a=>`<div class="s10-asset" data-id="${a.id}"><div class="s10-thumb">${a.kind==='image'&&(a.dataUrl||a.url)?`<img src="${a.dataUrl||a.url}">`:a.kind==='audio'?'♫':'{}'}</div><b title="${a.name}">${a.name}</b><small>${a.kind} · ${Math.max(1,Math.round((a.size||0)/1024))} KB · ${usage(a)} uso(s)</small><button class="s10-del">×</button></div>`).join(''):'<div class="s10-empty">Nenhum asset ainda. Importe depois seus sprites e backgrounds.</div>';
  $$('.s10-del',grid).forEach(b=>b.onclick=e=>{
   const id=e.target.closest('.s10-asset').dataset.id, s=studio(), asset=s.assets.find(a=>a.id===id);
   if(asset&&asset.builtin){toast('Assets internos da engine não podem ser removidos.');return}
   const refs=[];
-  for(const sc of A.project.scenes||[])for(const ent of sc.entities||[])if(ent.spriteAsset===id||ent.components?.sprite?.assetId===id)refs.push(ent);
+  for(const sc of A.project.scenes||[])for(const ent of sc.entities||[])if(ent.spriteAsset===id||ent.components?.spriteRenderer?.assetId===id||ent.components?.sprite?.assetId===id)refs.push(ent);
   if(refs.length&&!confirm('Este asset é usado por '+refs.length+' entidade(s). Remover e voltar essas entidades para placeholder?'))return;
-  for(const ent of refs){if(ent.spriteAsset===id)ent.spriteAsset=null;if(ent.components?.sprite?.assetId===id)ent.components.sprite.assetId=null}
+  for(const ent of refs){if(ent.spriteAsset===id)ent.spriteAsset=null;if(ent.components?.spriteRenderer?.assetId===id)ent.components.spriteRenderer.assetId=null;if(ent.components?.sprite?.assetId===id)ent.components.sprite.assetId=null}
   for(const an of s.animations||[])if(an.assetId===id)an.assetId=null;
   for(const px of s.parallax||[])if(px.assetId===id)px.assetId=null;
   if(A.project.game?.mainMenu?.background===id)A.project.game.mainMenu.background='';

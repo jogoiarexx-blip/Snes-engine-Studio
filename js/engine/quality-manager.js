@@ -1,9 +1,9 @@
 /** SNES Engine Studio 1.0 — adaptive runtime quality manager. */
 (function(g){'use strict';
 const PRESETS={
- low:{name:'Baixo',particleScale:.35,maxParticles:180,maxLights:2,maxParallax:2,fxEvery:2},
- balanced:{name:'Balanceado',particleScale:.7,maxParticles:360,maxLights:5,maxParallax:4,fxEvery:1},
- high:{name:'Alto',particleScale:1,maxParticles:600,maxLights:12,maxParallax:8,fxEvery:1}
+ low:{name:'Baixo',particleScale:.30,maxParticles:140,maxLights:2,maxParallax:2,fxEvery:3,renderScale:.75,shadowQuality:0,bloom:false,weatherDensity:.35},
+ balanced:{name:'Balanceado',particleScale:.65,maxParticles:320,maxLights:5,maxParallax:4,fxEvery:2,renderScale:1,shadowQuality:1,bloom:false,weatherDensity:.7},
+ high:{name:'Alto',particleScale:1,maxParticles:600,maxLights:12,maxParallax:8,fxEvery:1,renderScale:1,shadowQuality:2,bloom:true,weatherDensity:1}
 };
 const order=['low','balanced','high'];
 function normalize(v){return PRESETS[v]?v:'balanced'}

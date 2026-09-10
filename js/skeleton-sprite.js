@@ -7,7 +7,7 @@
 
   const img = (window.SNESAssets && window.SNESAssets.get("skeleton")) || new Image();
   img.onload = () => window.SNESStudio?.drawGrid();
-  img.src = window.SKELETON_SHEET_DATA || 'assets/skeleton.png';
+  img.src = window.SKELETON_SHEET_DATA || window.SKELETON_SHEET_URL || 'assets/skeleton.png';
 
   const clips = {
     idle: [
@@ -111,11 +111,8 @@
   // Export usa o buildExport do core (já embute runtime + clips + sheet)
   async function exportHTML(base) {
     // base já é o HTML completo do core; apenas garantir sheet data disponível
-    if (!window.SKELETON_SHEET_DATA) {
-      try {
-        window.SKELETON_SHEET_DATA = await dataURL();
-      } catch (_) {}
-    }
+    try { await window.SNESBuiltinTiles?.inlineAll?.(); await window.SNESBuiltInHero?.inline?.(); } catch (_) {}
+    if (!window.SKELETON_SHEET_DATA) { try { window.SKELETON_SHEET_DATA = await dataURL(); } catch (_) {} }
     return window.SNESStudio.buildExport();
   }
 
@@ -131,6 +128,8 @@
       const A = window.SNESStudio;
       exportBtn.disabled = true;
       try {
+        await window.SNESBuiltinTiles?.inlineAll?.();
+        await window.SNESBuiltInHero?.inline?.();
         if (!window.SKELETON_SHEET_DATA && img.complete && img.naturalWidth) {
           window.SKELETON_SHEET_DATA = await dataURL();
         }

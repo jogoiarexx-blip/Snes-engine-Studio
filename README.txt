@@ -1,103 +1,48 @@
-SNES ENGINE STUDIO 0.9 — MULTI-GENRE
-====================================
+SNES ENGINE STUDIO 1.0.1
+========================
 
 ABRIR
-1. Extraia o ZIP.
-2. Dois cliques em index.html (file://).
-3. Mantenha css/, js/, assets/ juntos.
+1. Extraia o ZIP mantendo as pastas juntas.
+2. Abra index.html em um navegador Chromium/Edge/Chrome atual.
+3. Para desenvolvimento/testes, Node.js e Python 3 são recomendados.
 
-GÊNEROS JOGÁVEIS
-1. Plataforma
-2. Action RPG (top-down)
-3. Shoot 'em Up
-4. Kart Racing 2.5D
-5. Metroidvania (NOVO)
-6. Beat 'em Up (NOVO)
+WORKFLOW
+Projeto -> Cena -> Player/Entidades -> Tiles/Chunks -> Animator/UI/Cutscene -> Jogar Jogo -> Save/Load -> Exportar HTML.
 
-NOVO PROJETO → escolha o gênero → TESTAR
+RECURSOS CENTRAIS
+- EntityWorld + Components como modelo principal de entidades, com ponte segura para projetos legados.
+- TileMap canônico em scene.tilemap, chunks, layers, edição global e migração de map/layers/chunks antigos.
+- Animator Controller com parâmetros bool/number/trigger, transições, eventos e hitboxes por frame.
+- Editor de mapa: brush, fill, line, rectangle, eyedropper, stamp, copiar/colar, layers e AutoTile bitmask.
+- Tile Cutter 8/16/32/custom, tiles compostos e metadata de colisão/material/dano/água/escada/slope/one-way/animação/som/tags.
+- Scene Manager 1.0.1 com busca, ordenação, duplicação/exclusão segura e templates Plataforma, Top-down, Shooter, Boss, Cutscene, Menu e Vazia.
+- Game Flow em grafo com condições por flags, quests, itens, bosses e decisões.
+- UI Designer compartilhado por Menu, Pause, Game Over, Victory, Slots, Loading e Credits.
+- Cutscene timeline multipista com Camera, Dialogue, Player/NPC, Animation, Audio, Events e Scene Transition.
+- Áudio centralizado em BGM, Ambient, SFX, UI e Voice, com fade/crossfade e áudio por cena.
+- Save slots, autosave rotativo, checkpoint e recuperação; persistência via StorageHub.
+- Asset Manager com arquivos reais + assets/manifest.json, preload/cache/hot reload/uso/dependências e descarte.
+- Camera com dead zone, look ahead, clamp, zoom, shake, regions e pan cinematográfico.
+- Profiler e Debug: F2 métricas; F3 colliders/hurtboxes/attack hitboxes/triggers/limites de câmera.
+- Qualidade Auto/Baixa/Balanceada/Alta afeta somente render/FX, nunca gameplay.
+- Seis gêneros: Plataforma, Top-down, Shooter, Kart, Metroidvania e Beat'em Up.
 
-KART 0.9
-- Checkpoints em ordem (sem atalho)
-- Pista serializada RLE (sem corromper Uint8Array)
-- Teste não altera o projeto
-- Track Editor: cópia + Aplicar
-- IA com seed + freio em curva
-- Respawn se preso
+ATALHOS
+F2 Debug | F3 Geometria | Ctrl+Z/Y Undo/Redo | Ctrl+C/V Copiar/Colar | Ctrl+D Duplicar | Delete Excluir.
 
-METROIDVANIA
-- 5 salas + segredo
-- Pulo duplo, dash
-- Boss 3 fases, chave, checkpoints
-- Controles: setas · Z pula · X ataca · C dash · E porta
+TESTES
+Execute: bash tests/run-all.sh
+A suíte valida sintaxe, testes unitários/integração, rebuild do bundle, E2E em Chromium e boot HTML.
+O E2E cobre projeto, TileMap, Components/EntityWorld, Animator, save/load, gameplay, pause, cena, checkpoint, Game Flow, os 6 gêneros e abertura do HTML exportado.
 
-BEAT 'EM UP
-- Profundidade Y, combo, agarrão, especial
-- 3 ondas + boss, crates, itens
-- Controles: setas · X combo · C especial · E agarrão
+EXPORTAÇÃO HTML
+Use Exportar HTML. O bundle é reconstruído por tools/build-export-sources.py a partir dos módulos atuais; não edite export-sources.js manualmente.
 
-ARQUITETURA
-js/engine/     core, combat, audio, atlas, assets
-js/runtimes/   platform, topdown, shooter, metroidvania, beat-em-up
-js/genres/kart-racing/
-js/storage/project-store.js
-js/editor/
+EXPORTAÇÃO SNES
+A saída .sfc continua EXPERIMENTAL. O compilador converte assets para estruturas SNES onde suportado, mas não existe paridade total com o runtime HTML. A interface identifica explicitamente essa limitação.
 
-DOCS
-CHANGELOG.md · TEST-REPORT.md · MIGRATION.md
+ESTRUTURA
+index.html | css/ | js/ | assets/ | tests/ | tools/
 
-LIMITAÇÕES
-Ver TEST-REPORT.md seção Incomplete.
-Não gera ROM SNES real.
-
-
-UPGRADES & HABILIDADES
-- Botão ⬆ no editor ou tecla I no jogo (MV / Beat'em Up)
-- Habilidades de mundo: pulo duplo, dash, wall jump (mapa)
-- Upgrades compráveis com pontos (força, vida, crítico, velocidade…)
-- Pontos ao abater inimigos e limpar ondas
-- Persistidos em project.upgrades (save/export)
-
-
-INVENTÁRIO
-- Botão 🎒 no editor · tecla I no jogo
-- Consumíveis: poções (Q usa poção rápida), éter, antídoto
-- Chaves no inventário (portas)
-- Equipamentos: anéis, botas, amuleto, armas
-- Loot de inimigos/crates (moedas, gemas, itens)
-- Gemas → pontos de upgrade no painel
-- 4 pedaços de coração = +1 vida máx
-- Persistido em project.inventory
-
-
-EDITOR — ESTILOS E COLOCAÇÃO (0.9)
-- Seletor de tema na barra de ferramentas e no painel Mapa
-- Aba Tilesets: clique no tema para aplicar
-- Para colocar item/inimigo/objeto: escolha no painel e CLIQUE NO MAPA
-- Esc cancela o modo de colocação
-- Itens rápidos: moeda, coração, chave, checkpoint, porta
-- Objetos e inimigos na aba Tilesets são clicáveis
-
-
-RENDER CANVAS 2D (0.9)
-- js/engine/render-cache.js
-- Cache offscreen por camada de tiles
-- Atlas de tiles pré-rasterizado
-- Dirty flags: só re-bake quando a camada muda
-- imageSmoothing desligado · contexto desynchronized
-- F3 no play: mostra FPS
-
-
-WEB WORKERS (carregamento)
-- js/engine/load-worker-host.js
-- Worker via Blob (offline / file://)
-- parseJSON, RLE encode/decode, prepareProject em background
-- loadAssets com concorrência limitada
-- Fallback automático na main thread se Worker falhar
-- Import de JSON de projeto usa worker quando disponível
-
-
-MONITOR WORKER (memória)
-- F4: overlay de memória do worker
-- SNESLoadWorker.getStats() / sampleMemory()
-- Exibe: heap worker, heap main, jobs, pending, bytes in/out
-- performance.memory só em Chromium; outros mostram n/a
+VERSÃO
+SNES Engine Studio 1.0.1 | Project Schema 10
