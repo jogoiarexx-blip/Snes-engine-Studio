@@ -146,7 +146,7 @@
     return m;
   }
 
-  function buildProject(type) {
+  function buildProject(type, briefPlan) {
     const tpl = TEMPLATES.find(t => t.id === type) || TEMPLATES[0];
     const map = type === 'platform' ? samplePlatformMap() : blankMap();
     if (type === 'topdown') {
@@ -226,6 +226,8 @@
       kartTrack: kartTrack
     };
     project.studio = project.studio || { version: '1.0.1', assets: [], prefabs: [], events: [], triggers: [], animations: [], bosses: [] };
+    // O GameForge Brief só altera dados suportados, antes da migração canônica.
+    if (briefPlan && window.SNESGameForgeBrief) window.SNESGameForgeBrief.apply(project, briefPlan);
     if (window.SNESGameFlow && window.SNESGameFlow.defaults) window.SNESGameFlow.defaults(project);
     if (window.ProjectStore && window.ProjectStore.restoreProject) return window.ProjectStore.restoreProject(project);
     return project;
@@ -240,6 +242,15 @@
       '<div class="wizard">' +
       '<h2>◆ Novo Projeto — Escolha o estilo</h2>' +
       '<p class="badge">Cada estilo tem física, controles, entidades e exportação próprios.</p>' +
+      '<div class="briefWizard">' +
+      '<label for="snesBrief"><strong>✨ Criar por descrição (GameForge)</strong></label>' +
+      '<p class="badge">Ex.: Quero um jogo de plataforma na floresta com 3 fases e 4 inimigos.</p>' +
+      '<textarea id="snesBrief" maxlength="4000" placeholder="Descreva seu jogo em português..."></textarea>' +
+      '<div class="briefActions"><button type="button" id="snesBriefAnalyze">Analisar ideia</button>' +
+      '<button type="button" id="snesBriefCreate" disabled>Criar projeto da ideia</button></div>' +
+      '<pre id="snesBriefResult" class="briefResult" aria-live="polite"></pre>' +
+      '</div>' +
+      '<div class="section">OU ESCOLHA UM MODELO</div>' +
       '<div class="wizardGrid" id="wizardGrid"></div>' +
       '</div>';
 
@@ -273,6 +284,55 @@
       };
       grid.appendChild(card);
     });
+
+
+    // Prévia auditável antes de modificar qualquer projeto existente.
+    const briefText = document.getElementById('snesBrief');
+    const briefAnalyze = document.getElementById('snesBriefAnalyze');
+    const briefCreate = document.getElementById('snesBriefCreate');
+    const briefResult = document.getElementById('snesBriefResult');
+    function previewBrief() {
+      briefCreate.disabled = true;
+      try {
+        if (!window.SNESGameForgeBrief) throw new Error('Interpretador de ideias indisponível.');
+        const plan = window.SNESGameForgeBrief.compile(briefText.value);
+        const lines = [
+          'Prévia: nenhum projeto foi alterado ainda.',
+          'Gênero: ' + (plan.genre || 'não identificado'),
+          'Fases: ' + plan.phases,
+          'Será configurado:',
+          ...plan.applied.map(item => '✓ ' + item),
+          'Pendente / exige edição:',
+          ...(plan.pending.length ? plan.pending.map(item => '• ' + item) : ['Nenhum requisito pendente detectado']),
+          ...plan.warnings.map(item => 'Aviso: ' + item)
+        ];
+        briefResult.textContent = lines.join('\n');
+        briefCreate.disabled = !plan.supported;
+        return plan;
+      } catch (error) {
+        briefResult.textContent = 'Não foi possível analisar: ' + error.message;
+        return null;
+      }
+    }
+    briefText.addEventListener('input', () => {
+      briefCreate.disabled = true;
+      briefResult.textContent = '';
+    });
+    briefAnalyze.onclick = previewBrief;
+    briefCreate.onclick = () => {
+      const plan = previewBrief();
+      if (!plan || !plan.supported) return;
+      try {
+        const p = buildProject(plan.genre, plan);
+        A.project = A.migrateProject ? A.migrateProject(p) : p;
+        m.classList.add('hidden');
+        A.renderAll();
+        A.toast('Projeto criado: ' + (plan.title || plan.genre) + ' · ' + plan.phases + ' fase(s)');
+        window.SNESStudioUI?.refreshGameTypeUI?.();
+      } catch (error) {
+        briefResult.textContent = 'Falha ao criar projeto: ' + error.message;
+      }
+    };
 
     m.classList.remove('hidden');
   }

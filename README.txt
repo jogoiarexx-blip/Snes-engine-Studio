@@ -46,3 +46,11 @@ index.html | css/ | js/ | assets/ | tests/ | tools/
 
 VERSÃO
 SNES Engine Studio 1.0.1 | Project Schema 10
+
+INTEGRAÇÃO GAMEFORGE (PRIMEIRA ETAPA)
+- Na opção Novo, use "Criar por descrição (GameForge)" para transformar ideias em projetos editáveis.
+- Exemplo: "Quero um jogo de plataforma na floresta com 3 fases e 4 inimigos".
+- Clique Analisar ideia antes de Criar projeto: a prévia separa o que será configurado do que é pendente.
+- Interpretação offline, somente os seis gêneros disponíveis, limite de 12 fases e sem geração automática de 3D.
+- O pedido original e os limites detectados ficam em studio.gameforgeBrief.
+- Guia detalhado: docs/GAMEFORGE-INTEGRACAO-01.md.
