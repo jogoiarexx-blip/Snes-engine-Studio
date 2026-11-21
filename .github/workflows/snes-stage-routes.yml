@@ -9,6 +9,7 @@ on:
       - 'js/runtimes/topdown/topdown-runtime.js'
       - 'js/export/**'
       - 'tests/stage-routes.test.js'
+      - 'tests/gameflow-routes.test.js'
       - 'tests/gameforge-brief.test.js'
       - '.github/workflows/snes-stage-routes.yml'
   pull_request:
@@ -20,6 +21,7 @@ on:
       - 'js/runtimes/topdown/topdown-runtime.js'
       - 'js/export/**'
       - 'tests/stage-routes.test.js'
+      - 'tests/gameflow-routes.test.js'
       - 'tests/gameforge-brief.test.js'
       - '.github/workflows/snes-stage-routes.yml'
 jobs:
