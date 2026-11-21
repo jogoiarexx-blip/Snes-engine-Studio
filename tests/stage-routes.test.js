@@ -35,6 +35,17 @@ test('Três rotas x três fases geram nove cenas jogáveis únicas',()=>{
  assert.ok(counts[0]<counts[1]&&counts[1]<counts[2],JSON.stringify(counts));
  assert.equal(project.game.startScene,project.scenes[0].id);
 });
+test('Cada rota Plataforma/Top-down tem saída que encerra a fase',()=>{
+ for(const type of ['platform','topdown']){
+   const p=sample(type);
+   routes.build(p,routes.parse('3 caminhos'));
+   assert.ok(p.scenes.every(s=>s.entities.some(e=>e.type==='door'&&e.event==='routeComplete')));
+ }
+ const platform=fs.readFileSync(path.join(root,'js/runtimes/platform/platform-runtime.js'),'utf8');
+ const topdown=fs.readFileSync(path.join(root,'js/runtimes/topdown/topdown-runtime.js'),'utf8');
+ assert.ok(platform.includes("e.event === 'routeComplete'")&&platform.includes('rt.won = true'));
+ assert.ok(topdown.includes("e.event === 'routeComplete'")&&topdown.includes('rt.won = true'));
+});
 test('Varia número de inimigos por onda no shooter sem alterar bosses',()=>{
  const p=sample('shooter',2);
  p.scenes[0].entities.push({type:'enemy',id:'boss',boss:true,hp:50});
