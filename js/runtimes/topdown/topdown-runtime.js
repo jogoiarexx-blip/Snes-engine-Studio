@@ -195,6 +195,10 @@
       if (e.dead) continue;
       const near = Math.abs(e.x - p.x) < 18 && Math.abs(e.y - p.y) < 18;
 
+      if (e.type==='checkpoint' && e.event==='forkCheckpoint') {
+        if(near&&!e.activated) global.SNESPhysicalForks?.checkpoint?.(rt,e);
+        continue;
+      }
       if (e.type === 'item' && near) {
         if (e.itemKind === 'key') {
           p.keys++;
@@ -214,6 +218,16 @@
         else p.score += 200; rt.variables.chestsOpened=(rt.variables.chestsOpened||0)+1; if(rt.missions) rt.missions.chest=true;
       }
 
+      if(e.type==='door' && (e.event==='forkGate'||e.event==='forkExit')) {
+        if(near&&rt.doorCooldown<=0&&input.pressed('action')){
+          const ok=e.event==='forkGate'
+            ?global.SNESPhysicalForks?.enter?.(rt,e)
+            :global.SNESPhysicalForks?.exit?.(rt,e);
+          if(ok)rt.doorCooldown=.65;
+          else rt.dialog={text:'Caminho bloqueado ou outra rota ativa.',pages:['Caminho bloqueado ou outra rota ativa.'],nextAt:now+300};
+        }
+        continue;
+      }
       if ((e.type === 'door' || e.event === 'nextScene' || e.event === 'teleport') && near && rt.doorCooldown <= 0) {
         if (e.locked && !(p.keys > 0)) {
           if (input.pressed('action')) {
@@ -343,7 +357,13 @@
       } else if (e.type === 'chest') {
         px(ctx, e.x + 1, e.y + 4, 14, 10, e.opened ? '#5d3b28' : '#c9a227');
       } else if (e.type === 'door') {
-        px(ctx, e.x + 2, e.y, 12, 18, '#6b4a2f');
+        px(ctx,e.x+2,e.y,12,18,e.forkId==='secret'?'#9361d5':e.forkId?'#448bba':'#6b4a2f');
+        if(e.forkId){ctx.fillStyle='#fff';ctx.font='8px monospace';ctx.fillText(
+          ({high:'ALTO',middle:'MEIO',low:'BAIXO',secret:'?'})[e.forkId]||'',e.x-7,e.y-5);}
+      } else if(e.type==='checkpoint'&&e.forkId){
+        px(ctx,e.x+5,e.y,5,16,e.activated?'#62d38b':'#ffd45e');
+        ctx.fillStyle='#fff';ctx.font='8px monospace';
+        ctx.fillText(({high:'ALTO',middle:'MEIO',low:'BAIXO',secret:'SECR'})[e.forkId]||'',e.x-6,e.y-5);
       } else if (e.type === 'item') {
         px(ctx, e.x + 3, e.y + 3, 8, 8, '#ffe17a');
       } else if (e.type === 'event_area') {
