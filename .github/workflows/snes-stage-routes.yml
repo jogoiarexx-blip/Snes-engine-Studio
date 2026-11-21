@@ -1,0 +1,52 @@
+name: GameForge SNES - Rotas e Save
+on:
+  push:
+    paths:
+      - 'js/game/stage-routes.js'
+      - 'js/game/game-flow.js'
+      - 'js/editor/gameforge-brief.js'
+      - 'js/runtimes/platform/platform-runtime.js'
+      - 'js/runtimes/topdown/topdown-runtime.js'
+      - 'js/export/**'
+      - 'tests/stage-routes.test.js'
+      - 'tests/gameflow-routes.test.js'
+      - 'tests/gameforge-brief.test.js'
+      - '.github/workflows/snes-stage-routes.yml'
+  pull_request:
+    paths:
+      - 'js/game/stage-routes.js'
+      - 'js/game/game-flow.js'
+      - 'js/editor/gameforge-brief.js'
+      - 'js/runtimes/platform/platform-runtime.js'
+      - 'js/runtimes/topdown/topdown-runtime.js'
+      - 'js/export/**'
+      - 'tests/stage-routes.test.js'
+      - 'tests/gameflow-routes.test.js'
+      - 'tests/gameforge-brief.test.js'
+      - '.github/workflows/snes-stage-routes.yml'
+jobs:
+  route-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          node --check js/game/stage-routes.js
+          node --check js/game/game-flow.js
+          node --check js/editor/gameforge-brief.js
+          node --check js/runtimes/platform/platform-runtime.js
+          node --check js/runtimes/topdown/topdown-runtime.js
+      - run: node tests/gameforge-brief.test.js
+      - run: node tests/stage-routes.test.js
+      - run: node tests/gameflow-routes.test.js
+      - run: node tests/integration-tests.js
+      - name: Verificar exportação HTML com bundle atualizado
+        run: |
+          python tools/build-export-sources.py
+          node --check js/export/export-sources.js
+          node tests/stage-routes.test.js

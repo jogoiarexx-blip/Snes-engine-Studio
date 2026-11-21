@@ -221,6 +221,14 @@
           }
           continue;
         }
+        if (e.event === 'routeComplete' && rt.project.game?.stageRoutes?.sceneIndex?.[rt.sceneId]) {
+          if (input.pressed('action')) {
+            if (e.locked) p.keys--;
+            rt.won = true;
+            rt.doorCooldown = 1;
+          }
+          continue;
+        }
         if (e.locked) p.keys--;
         const idx = rt.project.scenes.findIndex(s => s.id === rt.sceneId);
         const next = e.targetScene

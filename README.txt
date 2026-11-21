@@ -54,3 +54,12 @@ INTEGRAÇÃO GAMEFORGE (PRIMEIRA ETAPA)
 - Interpretação offline, somente os seis gêneros disponíveis, limite de 12 fases e sem geração automática de 3D.
 - O pedido original e os limites detectados ficam em studio.gameforgeBrief.
 - Guia detalhado: docs/GAMEFORGE-INTEGRACAO-01.md.
+
+
+INTEGRAÇÃO GAMEFORGE (SEGUNDA ETAPA — ROTAS)
+- Pedidos como "plataforma com 3 fases, 3 caminhos diferentes e passagem secreta" criam variantes jogáveis por fase.
+- Selecione a rota no começo da campanha e depois de cada vitória; os inimigos e bônus de pontos variam.
+- A passagem secreta requer duas rotas concluídas; save/load conserva pontos e recompensas concedidas.
+- Atualmente: Plataforma, Top-down e Shooter. Outros gêneros mostram pendência na prévia.
+- Cada caminho é uma cena separada e editável, não uma bifurcação desenhada dentro do mesmo mapa.
+- Guia: docs/GAMEFORGE-ROTAS-02.md.
