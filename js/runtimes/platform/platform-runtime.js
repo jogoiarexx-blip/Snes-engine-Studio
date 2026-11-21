@@ -331,6 +331,11 @@
       if ((e.type === 'door' || e.event === 'nextScene') && near && rt.doorCooldown <= 0) {
         if (e.locked && !(p.keys > 0)) continue;
         if (e.locked) p.keys--;
+        if (e.event === 'routeComplete' && rt.project.game?.stageRoutes?.sceneIndex?.[rt.sceneId]) {
+          rt.won = true;
+          rt.doorCooldown = 1;
+          continue;
+        }
         const idx = rt.project.scenes.findIndex(s => s.id === rt.sceneId);
         const next = e.targetScene
           ? rt.project.scenes.find(s => s.id === e.targetScene)
