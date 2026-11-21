@@ -9,6 +9,7 @@ on:
       - 'js/runtimes/topdown/topdown-runtime.js'
       - 'js/export/**'
       - 'tests/physical-forks.test.js'
+      - 'tests/physical-flow.test.js'
       - '.github/workflows/snes-physical-forks.yml'
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - 'js/runtimes/topdown/topdown-runtime.js'
       - 'js/export/**'
       - 'tests/physical-forks.test.js'
+      - 'tests/physical-flow.test.js'
       - '.github/workflows/snes-physical-forks.yml'
 jobs:
   tests:
@@ -39,6 +41,7 @@ jobs:
           node tests/stage-routes.test.js
           node tests/gameflow-routes.test.js
           node tests/physical-forks.test.js
+          node tests/physical-flow.test.js
           node tests/integration-tests.js
       - name: Bundle HTML regenerado e valido
         run: |
