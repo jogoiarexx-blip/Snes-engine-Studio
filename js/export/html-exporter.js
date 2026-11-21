@@ -48,6 +48,7 @@
       src.projectStore || '',
       src.studioRuntime || '',
       src.stageRoutes || '',
+      src.physicalForks || '',
       src.gameFlow || ''
     ];
     // Runtime only for this genre
