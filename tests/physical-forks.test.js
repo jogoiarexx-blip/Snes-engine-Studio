@@ -102,6 +102,45 @@ t('Modo físico não é anunciado para gêneros sem runtime de portais',()=>{
  assert.equal(game.game.physicalForks,undefined);
  assert.equal(game.game.stageRoutes,undefined);
 });
+t('Runtime Plataforma e Top-down ativam portais/checkpoints/saídas de verdade',()=>{
+ const oldInput=global.SNESInput;
+ global.SNESInput={create:()=>({
+  axisX:()=>0,axisY:()=>0,pressed:action=>action==='action',
+  bind(){},dispose(){},touch:{}
+ })};
+ require('../js/engine/collision.js');
+ require('../js/runtimes/platform/platform-runtime.js');
+ require('../js/runtimes/topdown/topdown-runtime.js');
+ const themes={floresta:{tiles:[
+  {solid:false,name:'vazio'}, {solid:true,name:'grama'},
+  {solid:true,name:'terra'}, {solid:true,name:'parede'}
+ ]}};
+ try{
+  const a=project('platform',1);forks.build(a,forks.parse('3 caminhos no mesmo mapa'));
+  const rt=global.PlatformRuntime.createState(a,'scene1');
+  const gate=rt.entities.find(e=>e.event==='forkGate'&&e.forkId==='high');
+  rt.player.x=gate.x;rt.player.y=gate.y;rt.__forkUnlockCount=0;
+  global.PlatformRuntime.tick(rt,themes,{},1/60,1000);
+  assert.equal(rt.player.routeChoice,'high');
+  assert.equal(rt.player.x,182);
+  assert.ok(rt.player.checkpoint);
+  const door=rt.entities.find(e=>e.event==='forkExit'&&e.forkId==='high');
+  rt.player.x=door.x;rt.player.y=door.y;rt.doorCooldown=0;
+  global.PlatformRuntime.tick(rt,themes,{},1/60,1100);
+  assert.equal(rt.won,true);
+  const b=project('topdown',1);forks.build(b,forks.parse('3 bifurcações no mesmo mapa'));
+  const rp=global.TopdownRuntime.createState(b,'scene1');
+  const cp=rp.entities.find(e=>e.event==='forkCheckpoint'&&e.forkId==='middle');
+  rp.player.x=cp.x;rp.player.y=cp.y;rp.__forkUnlockCount=0;
+  global.TopdownRuntime.tick(rp,themes,{},1/60,1200);
+  assert.equal(rp.player.routeChoice,'middle');
+  assert.ok(rp.player.checkpoint);
+  const exit=rp.entities.find(e=>e.event==='forkExit'&&e.forkId==='middle');
+  rp.player.x=exit.x;rp.player.y=exit.y;rp.doorCooldown=0;
+  global.TopdownRuntime.tick(rp,themes,{},1/60,1300);
+  assert.equal(rp.won,true);
+ }finally{global.SNESInput=oldInput;}
+});
 t('Integração do editor e exportador reconhece mapa físico',()=>{
  const index=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const exp=fs.readFileSync(path.join(root,'js/export/html-exporter.js'),'utf8');
