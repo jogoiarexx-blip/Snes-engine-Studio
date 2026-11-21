@@ -45,12 +45,13 @@ function topdown(scene,stage,ids,base){
  for(let x=0;x<COLS;x++){ground[0][x]=3;collision[0][x]=3;ground[17][x]=3;collision[17][x]=3;}
  for(let y=0;y<ROWS;y++)for(const x of [0,31]){ground[y][x]=3;collision[y][x]=3;}
  // Câmara secreta atrás de parede/portal: não é possível caminhar pelo bloqueio.
- if(ids.includes('secret'))for(const y of [13,14,15]){ground[y][8]=3;collision[y][8]=3;}
+ for(const id of ['high','middle','low','secret'])if(!ids.includes(id)||id==='secret')
+   for(const y of [POS[id]-1,POS[id],POS[id]+1]){ground[y][8]=3;collision[y][8]=3;}
  for(const id of ids){
    const lane=POS[id],cy=lane*T+1;
    // Pilares físicos em cada corredor, com contorno navegável.
-   const obstacles=id==='high'?[[17,lane-1]]:id==='middle'?[[17,lane+1],[22,lane-1]]:
-     id==='low'?[[17,lane-1],[23,lane+1]]:[[16,lane-1],[21,lane+1],[25,lane-1]];
+   const obstacles=id==='high'?[[17,lane]]:id==='middle'?[[17,lane],[23,lane+1]]:
+     id==='low'?[[17,lane],[23,lane-1]]:[[16,lane],[21,lane+1],[25,lane]];
    for(const [x,y] of obstacles){ground[y][x]=3;collision[y][x]=3;}
    if(id==='secret')entity(scene,stage,id,'door',105,cy,{event:'forkGate',targetX:164,targetY:cy});
    entity(scene,stage,id,'checkpoint',192,cy,{event:'forkCheckpoint'});
