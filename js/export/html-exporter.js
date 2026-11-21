@@ -47,6 +47,7 @@
       src.questSystem || '',
       src.projectStore || '',
       src.studioRuntime || '',
+      src.stageRoutes || '',
       src.gameFlow || ''
     ];
     // Runtime only for this genre
