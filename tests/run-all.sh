@@ -8,6 +8,7 @@ node "$ROOT/tests/stability-tests.js"
 node "$ROOT/tests/integration-tests.js"
 node "$ROOT/tests/gameforge-brief.test.js"
 node "$ROOT/tests/stage-routes.test.js"
+node "$ROOT/tests/gameflow-routes.test.js"
 echo '[3/5] Rebuild export sources'
 python "$ROOT/tools/build-export-sources.py" >/dev/null
 node --check "$ROOT/js/export/export-sources.js" >/dev/null
