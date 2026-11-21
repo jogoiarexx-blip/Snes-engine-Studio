@@ -56,9 +56,9 @@ function create(project,canvas,env){
   const definitionProject=project;
   const session=global.SNESRuntimeSession?global.SNESRuntimeSession.create(project):{definition:project,project:clone(project)};
   project=session.project; defaults(project); injectStyle(); env=env||{};
-  const state={project,definitionProject,session,canvas,env,screen:'boot',handle:null,slot:1,startedAt:0,elapsed:0,root:null,hud:null,transition:null,paused:false,lastScene:null,assetStats:null,loading:false,loadedScenes:new Set()};
+  const state={project,definitionProject,session,canvas,env,screen:'boot',handle:null,slot:1,startedAt:0,elapsed:0,root:null,hud:null,transition:null,paused:false,lastScene:null,routeState:global.SNESStageRoutes?.emptyState?.()||{version:1,claimed:[],history:[]},assetStats:null,loading:false,loadedScenes:new Set()};
   const machine=global.SNESGameStateMachine?global.SNESGameStateMachine.create(state):null;
-  if(machine){['boot','loading','splash','menu','slots','gameplay','pause','options','controls','gameover','victory','cutscene','intro','ending','credits'].forEach(name=>machine.register(name,{enter(ctx){ctx.screen=name}}));state.machine=machine;}
+  if(machine){['boot','loading','splash','menu','slots','gameplay','pause','routes','options','controls','gameover','victory','cutscene','intro','ending','credits'].forEach(name=>machine.register(name,{enter(ctx){ctx.screen=name}}));state.machine=machine;}
   const root=document.createElement('div');root.className='sgf-root';root.style.display='none';document.body.appendChild(root);state.root=root;
   const hud=document.createElement('div');hud.className='sgf-hud';hud.style.display='none';document.body.appendChild(hud);state.hud=hud;
   const transition=document.createElement('div');transition.className='sgf-transition';document.body.appendChild(transition);state.transition=transition;
@@ -111,17 +111,59 @@ function create(project,canvas,env){
   function hasAnySave(){const d=saves();return Object.keys(d.slots||{}).some(k=>d.slots[k]&&d.slots[k].sceneId)}
   function currentRt(){return state.handle&&state.handle.rt}
   function savePreferences(){return savePreferencesFor(project)}
-  function snapshot(){const rt=currentRt(),p=rt&&rt.player||null;if(!p&&state.lastSnapshot){const q=clone(state.lastSnapshot);q.sceneId=project.currentScene||q.sceneId;q.flags=clone(project.studio&&project.studio.flags||{});q.variables=clone(project.studio&&project.studio.variables||{});q.quests=state.questSystem?.snapshot?.()||q.quests||{};q.playTime=Math.floor(state.elapsed);q.savedAt=Date.now();return q}const pl=p||{};const snap={sceneId:project.currentScene,checkpoint:clone(pl.checkpoint||null),player:{x:pl.x,y:pl.y,hp:pl.hp,maxHp:pl.maxHp,score:pl.score||state.handle?.rt?.score||0,coins:pl.coins||0,keys:pl.keys||0},flags:clone(project.studio&&project.studio.flags||{}),variables:clone(project.studio&&project.studio.variables||{}),inventory:clone(project.inventory||null),upgrades:clone(project.upgrades||null),quests:state.questSystem?.snapshot?.()||{},playTime:Math.floor(state.elapsed+(state.startedAt?(performance.now()-state.startedAt)/1000:0)),savedAt:Date.now()};state.lastSnapshot=clone(snap);return snap}
+  function snapshot(){const rt=currentRt(),p=rt&&rt.player||null;if(!p&&state.lastSnapshot){const q=clone(state.lastSnapshot);q.sceneId=project.currentScene||q.sceneId;q.flags=clone(project.studio&&project.studio.flags||{});q.variables=clone(project.studio&&project.studio.variables||{});q.quests=state.questSystem?.snapshot?.()||q.quests||{};q.playTime=Math.floor(state.elapsed);q.savedAt=Date.now();q.routes=clone(state.routeState);return q}const pl=p||{};const snap={sceneId:project.currentScene,checkpoint:clone(pl.checkpoint||null),player:{x:pl.x,y:pl.y,hp:pl.hp,maxHp:pl.maxHp,score:pl.score||state.handle?.rt?.score||0,coins:pl.coins||0,keys:pl.keys||0},flags:clone(project.studio&&project.studio.flags||{}),variables:clone(project.studio&&project.studio.variables||{}),inventory:clone(project.inventory||null),upgrades:clone(project.upgrades||null),quests:state.questSystem?.snapshot?.()||{},routes:clone(state.routeState),playTime:Math.floor(state.elapsed+(state.startedAt?(performance.now()-state.startedAt)/1000:0)),savedAt:Date.now()};state.lastSnapshot=clone(snap);return snap}
   function saveSlot(n){const d=saves();d.slots=d.slots||{};d.slots[n]=snapshot();saveAll(project,d);state.slot=n;return d.slots[n]}
   function deleteSlot(n){const d=saves();if(d.slots)delete d.slots[n];saveAll(project,d)}
-  function applySave(s){if(!s)return; project.currentScene=s.sceneId||project.game.startScene;if(project.studio){if(s.flags)project.studio.flags=clone(s.flags);if(s.variables)project.studio.variables=clone(s.variables)}if(s.inventory)project.inventory=clone(s.inventory);if(s.upgrades)project.upgrades=clone(s.upgrades);state.elapsed=s.playTime||0;state.lastSnapshot=clone(s);if(s.quests&&global.SNESQuestSystem){state.questSystem?.destroy?.();state.questSystem=global.SNESQuestSystem.create(project,s.quests);}
+  function applySave(s){if(!s)return; project.currentScene=s.sceneId||project.game.startScene;if(project.studio){if(s.flags)project.studio.flags=clone(s.flags);if(s.variables)project.studio.variables=clone(s.variables)}if(s.inventory)project.inventory=clone(s.inventory);if(s.upgrades)project.upgrades=clone(s.upgrades);state.elapsed=s.playTime||0;state.lastSnapshot=clone(s);state.routeState=global.SNESStageRoutes?.restore?.(project.game.stageRoutes,s.routes)||{version:1,claimed:[],history:[]};if(s.quests&&global.SNESQuestSystem){state.questSystem?.destroy?.();state.questSystem=global.SNESQuestSystem.create(project,s.quests);}
     state.pendingPlayer=Object.assign({},clone(s.player||{}),s.checkpoint?{checkpoint:clone(s.checkpoint)}:{})}
 
   function splash(){setScreen('splash');const g=project.game.splash;if(!g.enabled){mainMenu();return}const p=panel(g.title||project.name,g.subtitle||'');const sm=document.createElement('div');sm.className='sgf-small';sm.textContent='SNES ENGINE STUDIO';p.appendChild(sm);setTimeout(()=>{if(state.screen==='splash')mainMenu()},Math.max(300,g.duration||1300))}
   function mainMenu(){stopGameplay(false);setScreen('menu');hud.style.display='none';const g=project.game.mainMenu;const p=panel(g.title||project.name,g.subtitle);const u=project.game.ui||{};p.style.position='absolute';p.style.left=(u.menuX||50)+'%';p.style.top=(u.menuY||50)+'%';p.style.transform='translate(-50%,-50%)';p.style.textAlign=u.menuAlign||'center';const bg=assetUrl(g.background);if(bg){root.style.backgroundImage='linear-gradient(#0006,#0008),url('+JSON.stringify(bg)+')';root.style.backgroundSize='cover';root.style.backgroundPosition='center'}else root.style.backgroundImage='none';const m=menuBox(p);m.appendChild(button('NOVO JOGO',()=>showSlots('new')));if(g.showContinue)m.appendChild(button('CONTINUAR',continueLatest,!hasAnySave()));if(g.showOptions)m.appendChild(button('OPÇÕES',options));if(g.showCredits)m.appendChild(button('CRÉDITOS',credits));}
   function showSlots(mode){setScreen('slots');const p=panel(mode==='new'?'NOVO JOGO':'CARREGAR JOGO','Selecione um arquivo');const d=saves();const wrap=document.createElement('div');wrap.className='sgf-slots';p.appendChild(wrap);for(let i=1;i<=project.game.saveSlots;i++){const s=d.slots&&d.slots[i];const el=document.createElement('div');el.className='sgf-slot';el.innerHTML='<b>SLOT '+i+'</b><div class="sgf-small">'+(s?(sceneName(s.sceneId)+' · '+fmtTime(s.playTime||0)):'Vazio')+'</div>';el.onclick=()=>{state.slot=i;if(mode==='new'){if(s&&!confirm('Substituir este save?'))return;newGame(i)}else if(s){applySave(s);playScene(project.currentScene)}};wrap.appendChild(el)}const m=menuBox(p);m.appendChild(button('VOLTAR',mainMenu));if(mode!=='new')m.appendChild(button('APAGAR SLOT ATUAL',()=>{deleteSlot(state.slot);showSlots(mode)}));}
   function continueLatest(){const d=saves(),list=Object.keys(d.slots||{}).map(k=>({k:+k,s:d.slots[k]})).filter(x=>x.s&&x.s.sceneId).sort((a,b)=>(b.s.savedAt||0)-(a.s.savedAt||0));if(!list.length)return;state.slot=list[0].k;applySave(list[0].s);playScene(project.currentScene)}
-  function newGame(slot){state.slot=slot||1;state.elapsed=0;project.currentScene=project.game.startScene||(project.game.campaign||[])[0]||project.currentScene;if(project.studio){project.studio.flags={};project.studio.variables={}};state.pendingPlayer=null;if(global.SNESQuestSystem){state.questSystem?.destroy?.();state.questSystem=global.SNESQuestSystem.create(project);}saveSlot(state.slot);if(project.game.intro.enabled)intro();else playScene(project.currentScene,true)}
+  function newGame(slot){state.slot=slot||1;state.elapsed=0;state.lastSnapshot=null;state.routeState=global.SNESStageRoutes?.emptyState?.()||{version:1,claimed:[],history:[]};project.currentScene=project.game.startScene||(project.game.campaign||[])[0]||project.currentScene;if(project.studio){project.studio.flags={};project.studio.variables={}};state.pendingPlayer=null;if(global.SNESQuestSystem){state.questSystem?.destroy?.();state.questSystem=global.SNESQuestSystem.create(project);}saveSlot(state.slot);if(project.game.intro.enabled)intro();else startFirstRoute()}
+
+  function startFirstRoute(){
+    if(global.SNESStageRoutes?.choicesFor?.(project.game.stageRoutes,0,state.routeState)?.length)return routeMenu(0);
+    return playScene(project.currentScene,true);
+  }
+  function routeMenu(stage){
+    const options=global.SNESStageRoutes?.choicesFor?.(project.game.stageRoutes,stage,state.routeState)||[];
+    if(!options.length)return false;
+    stopGameplay(false);
+    setScreen('routes');
+    const p=panel('ESCOLHA SEU CAMINHO','Fase '+(stage+1)+' · escolha uma rota com desafios e recompensas diferentes');
+    const m=menuBox(p);
+    options.forEach(o=>{
+      const label=o.name+' · '+o.description+' · +'+o.reward+' PTS'+(o.locked?' (BLOQUEADA)':'');
+      m.appendChild(button(label,()=>selectRoute(stage,o.id),o.locked));
+    });
+    m.appendChild(button('MENU PRINCIPAL',mainMenu));
+    return true;
+  }
+  function selectRoute(stage,id){
+    const selected=global.SNESStageRoutes?.select?.(project.game.stageRoutes,state.routeState,stage,id);
+    if(!selected)return false;
+    const destination=project.scenes?.find(s=>s.id===selected.sceneId);
+    if(!destination)return false;
+    const spawn=destination.entities?.find(e=>e.type==='player')||{x:32,y:200,hp:3};
+    const previous=state.lastSnapshot?.player||{};
+    const player={x:spawn.x,y:spawn.y,
+      hp:Number.isFinite(previous.hp)&&previous.hp>0?previous.hp:(spawn.hp||3),
+      maxHp:Number.isFinite(previous.maxHp)&&previous.maxHp>0?previous.maxHp:(spawn.hp||3),
+      score:Number.isFinite(previous.score)?previous.score:0,
+      coins:Number.isFinite(previous.coins)?previous.coins:0,
+      keys:Number.isFinite(previous.keys)?previous.keys:0};
+    project.currentScene=selected.sceneId;
+    project.game.flags=project.game.flags||{};
+    project.game.flags['decision:route_stage_'+stage]=id;
+    state.lastSnapshot=Object.assign({},state.lastSnapshot||{},{
+      sceneId:selected.sceneId,checkpoint:null,player,routes:clone(state.routeState)});
+    state.pendingPlayer={hp:player.hp,maxHp:player.maxHp,score:player.score,coins:player.coins,keys:player.keys};
+    saveSlot(state.slot);
+    playScene(selected.sceneId);
+    return true;
+  }
   function sceneName(id){const s=(project.scenes||[]).find(x=>x.id===id);return s?s.name:id||'Fase'}
   function graphConditionOk(c){c=c||{type:'always'};const key=c.key||c.target||'',value=c.value==null?true:c.value,qs=state.questSystem?.state||{};if(c.type==='always')return true;if(c.type==='flag')return (project.game.flags||{})[key]===value||String((project.game.flags||{})[key])===String(value);if(c.type==='quest')return qs.completed?.[key]===true||qs.quests?.[key]?.status==='completed';if(c.type==='item')return ((state.handle?.player?.inventory||[]).find?.(x=>(x.id||x)===key)?.count||0)>=Math.max(1,+value||1);if(c.type==='boss')return !!(project.game.flags||{})['boss:'+key];if(c.type==='decision')return String((project.game.flags||{})['decision:'+key])===String(value);return false}
   function nextScene(id){const edges=project.game.flowGraph?.edges||[];for(const e of edges){if(e.from===id&&graphConditionOk(e.condition))return e.to;}const arr=project.game.campaign||[];const i=arr.indexOf(id);return i>=0&&i+1<arr.length?arr[i+1]:null}
@@ -159,7 +201,27 @@ function create(project,canvas,env){
   function pause(){if(!project.game.pause.enabled||!['gameplay','options','controls'].includes(state.screen))return;const rt=currentRt();if(rt)rt.paused=true;global.SNESAudio?.suspend?.();state.paused=true;setScreen('pause');const p=panel('PAUSADO',sceneName(project.currentScene));const m=menuBox(p);m.appendChild(button('CONTINUAR',resume));if(project.game.pause.allowSave)m.appendChild(button('SALVAR',()=>{saveSlot(state.slot);toastIn(p,'Jogo salvo.')}));if(project.game.pause.allowRestart)m.appendChild(button('REINICIAR FASE',()=>{state.pendingPlayer=null;playScene(project.currentScene)}));if(project.game.pause.allowOptions)m.appendChild(button('OPÇÕES',()=>options(true)));m.appendChild(button('MENU PRINCIPAL',()=>{saveSlot(state.slot);mainMenu()}));}
   function resume(){clear();setScreen('gameplay');const rt=currentRt();if(rt)rt.paused=false;global.SNESAudio?.resume?.();state.paused=false;hud.style.display=project.game.hud.enabled?'flex':'none'}
   function gameOver(){setScreen('gameover');const p=panel(project.game.gameOver.title,'');const m=menuBox(p);if(project.game.gameOver.retry)m.appendChild(button('TENTAR NOVAMENTE',()=>{const d=saves(),sv=d.slots&&d.slots[state.slot];if(sv&&sv.sceneId){applySave(sv);playScene(project.currentScene)}else playScene(state.lastScene)}));if(project.game.gameOver.load)m.appendChild(button('CARREGAR',()=>showSlots('load')));if(project.game.gameOver.menu)m.appendChild(button('MENU PRINCIPAL',mainMenu))}
-  function victory(){saveSlot(state.slot);setScreen('victory');const next=nextScene(state.lastScene),p=panel(project.game.victory.title,sceneName(state.lastScene));const m=menuBox(p);if(next&&project.game.victory.next)m.appendChild(button('PRÓXIMA FASE',()=>{project.currentScene=next;playScene(next)}));else m.appendChild(button('VER FINAL / CRÉDITOS',ending));if(project.game.victory.menu)m.appendChild(button('MENU PRINCIPAL',mainMenu))}
+  function victory(){
+    const routes=global.SNESStageRoutes,config=project.game.stageRoutes;
+    const routeIndex=routes?.stageOf?.(config,state.lastScene)??-1;
+    if(routeIndex>=0){
+      const score=state.lastSnapshot?.player?.score;
+      const outcome=routes.complete(config,state.routeState,state.lastScene,score);
+      state.routeState=outcome.state;
+      if(state.lastSnapshot?.player)state.lastSnapshot.player.score=outcome.score;
+    }
+    saveSlot(state.slot);
+    setScreen('victory');
+    const nextStage=routeIndex>=0?routes.nextStage(config,state.lastScene):-1;
+    const next=routeIndex<0?nextScene(state.lastScene):null;
+    const p=panel(project.game.victory.title,sceneName(state.lastScene)),m=menuBox(p);
+    if(nextStage>=0&&project.game.victory.next)
+      m.appendChild(button('ESCOLHER PRÓXIMO CAMINHO',()=>routeMenu(nextStage)));
+    else if(next&&project.game.victory.next)
+      m.appendChild(button('PRÓXIMA FASE',()=>{project.currentScene=next;playScene(next)}));
+    else m.appendChild(button('VER FINAL / CRÉDITOS',ending));
+    if(project.game.victory.menu)m.appendChild(button('MENU PRINCIPAL',mainMenu));
+  }
   function runTimeline(list,done){
     list=(list||[]).slice().sort((a,b)=>(+a.time||0)-(+b.time||0));if(!list.length){done&&done();return}
     setScreen('cutscene');const p=panel('CUTSCENE',''),text=document.createElement('div');text.className='sgf-credits';p.appendChild(text);const timers=[],rafs=[];let finished=false;
@@ -184,7 +246,7 @@ function create(project,canvas,env){
     for(const a of list)timers.push(setTimeout(()=>action(a),Math.max(0,(+a.time||0)*1000)));
     const end=Math.max(...list.map(a=>(+a.time||0)+(+a.duration||0)),0);timers.push(setTimeout(finish,Math.max(200,end*1000+250)));const m=menuBox(p);m.appendChild(button('PULAR',finish));
   }
-  function intro(){const tl=project.game.cutscenes&&project.game.cutscenes.intro;if(tl&&tl.length){runTimeline(tl,()=>playScene(project.currentScene,true));return}setScreen('intro');const p=panel(project.game.intro.title,'');const t=document.createElement('div');t.className='sgf-credits';t.textContent=project.game.intro.text;p.appendChild(t);const m=menuBox(p);m.appendChild(button('COMEÇAR',()=>playScene(project.currentScene,true)));m.appendChild(button('PULAR',()=>playScene(project.currentScene,true)))}
+  function intro(){const tl=project.game.cutscenes&&project.game.cutscenes.intro;if(tl&&tl.length){runTimeline(tl,startFirstRoute);return}setScreen('intro');const p=panel(project.game.intro.title,'');const t=document.createElement('div');t.className='sgf-credits';t.textContent=project.game.intro.text;p.appendChild(t);const m=menuBox(p);m.appendChild(button('COMEÇAR',startFirstRoute));m.appendChild(button('PULAR',startFirstRoute))}
   function ending(){const tl=project.game.cutscenes&&project.game.cutscenes.ending;if(tl&&tl.length){runTimeline(tl,credits);return}setScreen('ending');const p=panel(project.game.ending.title,'');const t=document.createElement('div');t.className='sgf-credits';t.textContent=project.game.ending.text;p.appendChild(t);const m=menuBox(p);m.appendChild(button('CRÉDITOS',credits));m.appendChild(button('MENU PRINCIPAL',mainMenu))}
   function credits(){setScreen('credits');const p=panel(project.game.credits.title,'');const t=document.createElement('div');t.className='sgf-credits';t.textContent=project.game.credits.text||'';p.appendChild(t);const m=menuBox(p);m.appendChild(button('VOLTAR',mainMenu))}
   function options(fromPause){setScreen('options');const g=project.game.settings,p=panel('OPÇÕES','');const form=document.createElement('div');form.innerHTML='<div class="sgf-setting"><label>Música</label><input id="sgfMusic" type="range" min="0" max="1" step=".05" value="'+g.music+'"></div><div class="sgf-setting"><label>Efeitos</label><input id="sgfSfx" type="range" min="0" max="1" step=".05" value="'+g.sfx+'"></div><div class="sgf-setting"><label>Dificuldade</label><select id="sgfDiff"><option value="easy">Fácil</option><option value="normal">Normal</option><option value="hard">Difícil</option></select></div><div class="sgf-setting"><label>Qualidade</label><select id="sgfQuality"><option value="auto">Automática</option><option value="low">Baixa</option><option value="balanced">Balanceada</option><option value="high">Alta</option></select></div><div class="sgf-setting"><label>Pixel Perfect</label><input id="sgfPixel" type="checkbox" '+(g.pixelPerfect?'checked':'')+'></div><div class="sgf-setting"><label>Pausar ao perder foco</label><input id="sgfAutoPause" type="checkbox" '+(g.autoPause!==false?'checked':'')+'></div>';p.appendChild(form);form.querySelector('#sgfDiff').value=g.difficulty;form.querySelector('#sgfQuality').value=g.quality||'auto';form.querySelector('#sgfMusic').oninput=e=>{g.music=+e.target.value;applyAudio();savePreferences()};form.querySelector('#sgfSfx').oninput=e=>{g.sfx=+e.target.value;applyAudio();savePreferences()};form.querySelector('#sgfDiff').onchange=e=>{g.difficulty=e.target.value;savePreferences()};form.querySelector('#sgfQuality').onchange=e=>{g.quality=e.target.value;const rt=currentRt();if(rt&&global.SNESQuality&&g.quality!=='auto')global.SNESQuality.set(rt,g.quality,'options');savePreferences()};form.querySelector('#sgfPixel').onchange=e=>{g.pixelPerfect=e.target.checked;canvas.style.imageRendering=g.pixelPerfect?'pixelated':'auto';savePreferences()};form.querySelector('#sgfAutoPause').onchange=e=>{g.autoPause=e.target.checked;savePreferences()};const m=menuBox(p);m.appendChild(button('CONTROLES',()=>controls(fromPause)));m.appendChild(button('TELA CHEIA',()=>{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen()}));m.appendChild(button('VOLTAR',fromPause?pause:mainMenu));}
@@ -223,13 +285,13 @@ function create(project,canvas,env){
   function toastIn(p,msg){let x=p.querySelector('.sgf-toast');if(!x){x=document.createElement('div');x.className='sgf-small sgf-toast';p.appendChild(x)}x.textContent=msg;setTimeout(()=>{if(x)x.textContent=''},1500)}
   function visibilityPause(){if(document.hidden&&project.game.settings.autoPause!==false&&state.screen==='gameplay')pause()}
   document.addEventListener('visibilitychange',visibilityPause);
-  async function start(){defaults(project);applyTheme();const prefs=loadPreferences(project);if(prefs){if(prefs.settings)project.game.settings=Object.assign(project.game.settings,prefs.settings);if(prefs.controls)project.game.controls=Object.assign(clone(DEFAULT_CONTROLS),prefs.controls)}if(global.SNESInput&&global.SNESInput.setKeyMap)global.SNESInput.setKeyMap(project.game.controls);applyAudio();await preloadGame();if(project.game.startMode==='scene')playScene(project.game.startScene);else splash()}
+  async function start(){defaults(project);applyTheme();const prefs=loadPreferences(project);if(prefs){if(prefs.settings)project.game.settings=Object.assign(project.game.settings,prefs.settings);if(prefs.controls)project.game.controls=Object.assign(clone(DEFAULT_CONTROLS),prefs.controls)}if(global.SNESInput&&global.SNESInput.setKeyMap)global.SNESInput.setKeyMap(project.game.controls);applyAudio();await preloadGame();if(project.game.startMode==='scene')startFirstRoute();else splash()}
   function destroy(){stopGameplay(false);if(offCheckpoint)offCheckpoint();if(offScene)offScene();document.removeEventListener('visibilitychange',visibilityPause);root.remove();hud.remove();transition.remove();window.removeEventListener('keydown',keyCapture,true)}
   function keyCapture(e){const key=(e.key||'').toLowerCase(),pauseKeys=(project.game.controls&&project.game.controls.pause)||['escape','p'];if(!pauseKeys.map(String).map(k=>k.toLowerCase()).includes(key))return;if(state.screen==='gameplay'){e.preventDefault();e.stopImmediatePropagation();pause()}else if(state.screen==='pause'){e.preventDefault();e.stopImmediatePropagation();resume()}}
   window.addEventListener('keydown',keyCapture,true);
   if(global.SNESEvents)offCheckpoint=global.SNESEvents.on('checkpoint:activated',ev=>{if(project.game.settings.autosave!==false&&state.screen==='gameplay'&&ev?.rt===currentRt()){saveSlot(state.slot);global.SNESEvents.emit('game:autosaved',{slot:state.slot,checkpoint:ev.checkpoint});}});
   if(global.SNESEvents)offScene=global.SNESEvents.on('scene:changed',ev=>{if(ev?.rt!==currentRt())return;(async()=>{ev.rt.paused=true;project.currentScene=ev.current;state.lastScene=ev.current;state.lastSnapshot=null;if(project.game.settings.autosave!==false)saveSlot(state.slot);if(project.game.loading?.sceneEnabled!==false)await preloadScene(ev.current);const ms=Math.max(0,+project.game.settings.transitionMs||260);if(project.game.settings.transition!=='none'&&ms){transition.style.transitionDuration=ms+'ms';transition.style.opacity='1';await wait(ms);transition.style.opacity='0'}const track=project.game.cutscenes?.scenes?.[ev.current];if(track&&track.length){runTimeline(track,()=>{clear();setScreen('gameplay');ev.rt.paused=false;hud.style.display=project.game.hud.enabled?'flex':'none';updateHud()})}else{clear();setScreen('gameplay');ev.rt.paused=false;hud.style.display=project.game.hud.enabled?'flex':'none';updateHud()}})().catch(err=>{ev.rt.paused=false;global.SNESLogger?.error?.('loading','Falha ao trocar cena',err)})});
-  return {state,start,destroy,mainMenu,newGame,continueLatest,showSlots,playScene,pause,resume,saveSlot,gameOver,victory,credits,options,controls,intro,ending,runTimeline,preloadGame,defaults:()=>defaults(project)};
+  return {state,start,destroy,mainMenu,newGame,continueLatest,showSlots,playScene,routeMenu,selectRoute,pause,resume,saveSlot,gameOver,victory,credits,options,controls,intro,ending,runTimeline,preloadGame,defaults:()=>defaults(project)};
 }
 
 let active=null;
