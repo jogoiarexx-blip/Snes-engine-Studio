@@ -35,7 +35,7 @@ const fakeWindow={
  addEventListener(){},removeEventListener(){}
 };
 const source=fs.readFileSync(path.join(__dirname,'../js/game/game-flow.js'),'utf8');
-vm.runInNewContext(source,{window:fakeWindow,document:doc,performance:{now:()=>4000},
+vm.runInNewContext(source,{window:fakeWindow,document:doc,SNESStorage:fakeWindow.SNESStorage,performance:{now:()=>4000},
   setTimeout,clearTimeout,console,navigator:{},structuredClone});
 const project={
  id:'route-gameflow-test',name:'Rotas',gameType:'platform',
