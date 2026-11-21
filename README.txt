@@ -63,3 +63,11 @@ INTEGRAÇÃO GAMEFORGE (SEGUNDA ETAPA — ROTAS)
 - Atualmente: Plataforma, Top-down e Shooter. Outros gêneros mostram pendência na prévia.
 - Cada caminho é uma cena separada e editável, não uma bifurcação desenhada dentro do mesmo mapa.
 - Guia: docs/GAMEFORGE-ROTAS-02.md.
+
+INTEGRAÇÃO GAMEFORGE (TERCEIRA ETAPA — BIFURCAÇÕES FÍSICAS)
+- Novo → Criar por descrição: "plataforma com 3 fases, 3 caminhos físicos no mesmo mapa e passagem secreta".
+- Action RPG: caminhos exploráveis ligados a um hall comum; Plataforma: portais para corredores de diferentes alturas no mesmo mapa.
+- Obstáculos reais, inimigos variados, checkpoint, saída específica e recompensa por rota.
+- 2 conquistas distintas liberam a passagem secreta nas fases posteriores.
+- O save preserva o caminho atual e a pontuação; os jogos antigos continuam compatíveis.
+- Guia: docs/GAMEFORGE-BIFURCACOES-FISICAS-03.md.

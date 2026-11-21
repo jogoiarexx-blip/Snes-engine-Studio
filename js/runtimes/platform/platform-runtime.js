@@ -320,6 +320,10 @@
         else p.score += 100;
         e.dead = true;
       }
+      if (e.type==='checkpoint' && e.event==='forkCheckpoint') {
+        if(near&&!e.activated) global.SNESPhysicalForks?.checkpoint?.(rt,e);
+        continue;
+      }
       if ((e.type === 'checkpoint') && near && !e.activated) {
         e.activated = true;
         p.checkpoint = { x: e.x, y: e.y, sceneId: rt.sceneId };
@@ -327,6 +331,16 @@
       if ((e.type === 'chest') && near && !e.opened && input.pressed('action')) {
         e.opened = true;
         p.score += 250;
+      }
+      if(e.type==='door' && (e.event==='forkGate'||e.event==='forkExit')) {
+        if(near&&rt.doorCooldown<=0&&input.pressed('action')){
+          const ok=e.event==='forkGate'
+            ?global.SNESPhysicalForks?.enter?.(rt,e)
+            :global.SNESPhysicalForks?.exit?.(rt,e);
+          if(ok)rt.doorCooldown=.65;
+          else rt.dialog={text:'Caminho bloqueado ou outra rota ativa.',until:now+1800};
+        }
+        continue;
       }
       if ((e.type === 'door' || e.event === 'nextScene') && near && rt.doorCooldown <= 0) {
         if (e.locked && !(p.keys > 0)) continue;
@@ -426,7 +440,12 @@
     } else if (e.type === 'checkpoint') {
       px(ctx, e.x + 6, e.y, 3, 16, e.activated ? '#62d38b' : '#888');
     } else if (e.type === 'door') {
-      px(ctx, e.x + 2, e.y, 12, 18, '#5b3a22'); px(ctx, e.x + 4, e.y + 2, 8, 14, '#3d2716');
+      if(e.forkId){
+        px(ctx,e.x+2,e.y,12,18,e.forkId==='secret'?'#9361d5':'#448bba');
+        px(ctx,e.x+5,e.y+4,6,10,'#10253d');
+        ctx.fillStyle='#fff';ctx.font='8px monospace';
+        ctx.fillText(({high:'ALTO',middle:'MEIO',low:'BAIXO',secret:'?'})[e.forkId]||'',e.x-7,e.y-5);
+      } else {px(ctx, e.x + 2, e.y, 12, 18, '#5b3a22'); px(ctx, e.x + 4, e.y + 2, 8, 14, '#3d2716');}
     } else if (e.type === 'chest') {
       px(ctx, e.x + 1, e.y + 4, 14, 10, e.opened ? '#5d3b28' : '#8a5a2f');
     } else if (e.type === 'moving_platform') {

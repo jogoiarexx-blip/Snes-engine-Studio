@@ -1,0 +1,50 @@
+name: GameForge SNES - Bifurcacoes Fisicas
+on:
+  push:
+    paths:
+      - 'js/game/physical-forks.js'
+      - 'js/game/game-flow.js'
+      - 'js/editor/gameforge-brief.js'
+      - 'js/runtimes/platform/platform-runtime.js'
+      - 'js/runtimes/topdown/topdown-runtime.js'
+      - 'js/export/**'
+      - 'tests/physical-forks.test.js'
+      - 'tests/physical-flow.test.js'
+      - '.github/workflows/snes-physical-forks.yml'
+  pull_request:
+    paths:
+      - 'js/game/physical-forks.js'
+      - 'js/game/game-flow.js'
+      - 'js/editor/gameforge-brief.js'
+      - 'js/runtimes/platform/platform-runtime.js'
+      - 'js/runtimes/topdown/topdown-runtime.js'
+      - 'js/export/**'
+      - 'tests/physical-forks.test.js'
+      - 'tests/physical-flow.test.js'
+      - '.github/workflows/snes-physical-forks.yml'
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Sintaxe de todos os modulos
+        run: find js -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Regressao GameForge/SNES
+        run: |
+          node tests/gameforge-brief.test.js
+          node tests/stage-routes.test.js
+          node tests/gameflow-routes.test.js
+          node tests/physical-forks.test.js
+          node tests/physical-flow.test.js
+          node tests/integration-tests.js
+      - name: Bundle HTML regenerado e valido
+        run: |
+          python tools/build-export-sources.py
+          node --check js/export/export-sources.js
+          node tests/physical-forks.test.js

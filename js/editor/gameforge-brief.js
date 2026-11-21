@@ -83,7 +83,15 @@
     else if (/\b(mais facil|dificuldade facil|dificuldade baixa)\b/.test(t)) difficulty = 'easy';
     if (difficulty) applied.push('Preferência de dificuldade do projeto: ' + difficulty);
     const routes = root.SNESStageRoutes?.parse?.(source) || null;
-    if (routes) {
+    const physical = root.SNESPhysicalForks?.parse?.(source,routes) || null;
+    if (physical) {
+      if (['platform','topdown'].includes(genre) && !unsupported3D) {
+        applied.push(physical.choices.length+' rotas físicas no mesmo mapa, com obstáculos, checkpoints e saídas');
+        if (physical.secret) applied.push('Corredor secreto desbloqueável no mapa');
+      } else {
+        pending.push('Bifurcações físicas no mesmo mapa disponíveis apenas em Plataforma e Action RPG/Top-down.');
+      }
+    } else if (routes) {
       if (root.SNESStageRoutes?.SUPPORTED?.includes(genre) && !unsupported3D) {
         applied.push(routes.choices.length + ' caminhos por fase com inimigos e recompensas diferentes');
         if (routes.secret) applied.push('Passagem secreta desbloqueável');
@@ -104,7 +112,7 @@
       pending.push('Chefe específico não é criado automaticamente; configure-o no editor.');
     }
     return {version:1, source, genre, supported:!!genre && SUPPORTED.includes(genre) && !unsupported3D,
-      title, phases, theme, enemies, difficulty, routes, applied, pending, warnings};
+      title, phases, theme, enemies, difficulty, routes, physical, applied, pending, warnings};
   }
   function apply(project, plan) {
     if (!project || !Array.isArray(project.scenes) || !project.scenes.length ||
@@ -139,7 +147,9 @@
     project.world = {nodes:{}, start:'scene1'};
     project.game = project.game || {};
     project.game.campaign = project.scenes.map(scene => scene.id);
-    if (plan.routes && root.SNESStageRoutes?.SUPPORTED?.includes(plan.genre)) {
+    if (plan.physical && ['platform','topdown'].includes(plan.genre) && root.SNESPhysicalForks) {
+      root.SNESPhysicalForks.build(project,plan.physical);
+    } else if (!plan.physical && plan.routes && root.SNESStageRoutes?.SUPPORTED?.includes(plan.genre)) {
       root.SNESStageRoutes.build(project, plan.routes);
     }
     if (plan.difficulty) {
