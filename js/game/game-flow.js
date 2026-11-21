@@ -165,8 +165,15 @@ function create(project,canvas,env){
     return true;
   }
   function sceneName(id){const s=(project.scenes||[]).find(x=>x.id===id);return s?s.name:id||'Fase'}
-  function graphConditionOk(c){c=c||{type:'always'};const key=c.key||c.target||'',value=c.value==null?true:c.value,qs=state.questSystem?.state||{};if(c.type==='always')return true;if(c.type==='flag')return (project.game.flags||{})[key]===value||String((project.game.flags||{})[key])===String(value);if(c.type==='quest')return qs.completed?.[key]===true||qs.quests?.[key]?.status==='completed';if(c.type==='item')return ((state.handle?.player?.inventory||[]).find?.(x=>(x.id||x)===key)?.count||0)>=Math.max(1,+value||1);if(c.type==='boss')return !!(project.game.flags||{})['boss:'+key];if(c.type==='decision')return String((project.game.flags||{})['decision:'+key])===String(value);return false}
-  function nextScene(id){const edges=project.game.flowGraph?.edges||[];for(const e of edges){if(e.from===id&&graphConditionOk(e.condition))return e.to;}const arr=project.game.campaign||[];const i=arr.indexOf(id);return i>=0&&i+1<arr.length?arr[i+1]:null}
+  function graphConditionOk(c){c=c||{type:'always'};const key=c.key||c.target||'',value=c.value==null?true:c.value,qs=state.questSystem?.state||{};if(c.type==='always')return true;if(c.type==='flag')return (project.game.flags||{})[key]===value||String((project.game.flags||{})[key])===String(value);if(c.type==='quest')return qs.completed?.[key]===true||qs.quests?.[key]?.status==='completed';if(c.type==='item')return ((state.handle?.player?.inventory||[]).find?.(x=>(x.id||x)===key)?.count||0)>=Math.max(1,+value||1);if(c.type==='boss')return !!(project.game.flags||{})['boss:'+key];if(c.type==='decision')return String((project.game.flags||{})['decision:'+key])===String(value);if(c.type==='route')return String((project.game.flags||{})['decision:route_stage_'+c.stage])===String(c.key);return false}
+  function nextScene(id){
+    const routes=global.SNESStageRoutes,config=project.game.stageRoutes;
+    if(routes?.stageOf?.(config,id)>=0){
+      const n=routes.nextStage(config,id);
+      const chosen=(project.game.flags||{})['decision:route_stage_'+n];
+      return n>=0?(routes.select(config,state.routeState,n,chosen)?.sceneId||null):null;
+    }
+    const edges=project.game.flowGraph?.edges||[];for(const e of edges){if(e.from===id&&graphConditionOk(e.condition))return e.to;}const arr=project.game.campaign||[];const i=arr.indexOf(id);return i>=0&&i+1<arr.length?arr[i+1]:null}
 
   async function playScene(id,isNew,skipSceneCutscene,skipTransition){
     if(!global.SNESEngine){console.error('SNESEngine missing');return}
