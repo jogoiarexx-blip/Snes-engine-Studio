@@ -82,6 +82,15 @@
     if (/\b(mais dificil|dificuldade dificil|dificuldade alta|hardcore)\b/.test(t)) difficulty = 'hard';
     else if (/\b(mais facil|dificuldade facil|dificuldade baixa)\b/.test(t)) difficulty = 'easy';
     if (difficulty) applied.push('Preferência de dificuldade do projeto: ' + difficulty);
+    const routes = root.SNESStageRoutes?.parse?.(source) || null;
+    if (routes) {
+      if (root.SNESStageRoutes?.SUPPORTED?.includes(genre) && !unsupported3D) {
+        applied.push(routes.choices.length + ' caminhos por fase com inimigos e recompensas diferentes');
+        if (routes.secret) applied.push('Passagem secreta desbloqueável');
+      } else {
+        pending.push('Caminhos alternativos ainda não funcionam nesse gênero; requer implementação específica.');
+      }
+    }
     const unsupported = [
       [/\b(multiplayer|online|coop)\b/, 'Multiplayer/online'],
       [/\b(crafting|fabricacao de itens)\b/, 'Crafting'],
@@ -95,7 +104,7 @@
       pending.push('Chefe específico não é criado automaticamente; configure-o no editor.');
     }
     return {version:1, source, genre, supported:!!genre && SUPPORTED.includes(genre) && !unsupported3D,
-      title, phases, theme, enemies, difficulty, applied, pending, warnings};
+      title, phases, theme, enemies, difficulty, routes, applied, pending, warnings};
   }
   function apply(project, plan) {
     if (!project || !Array.isArray(project.scenes) || !project.scenes.length ||
@@ -130,6 +139,9 @@
     project.world = {nodes:{}, start:'scene1'};
     project.game = project.game || {};
     project.game.campaign = project.scenes.map(scene => scene.id);
+    if (plan.routes && root.SNESStageRoutes?.SUPPORTED?.includes(plan.genre)) {
+      root.SNESStageRoutes.build(project, plan.routes);
+    }
     if (plan.difficulty) {
       project.game.settings = project.game.settings || {};
       project.game.settings.difficulty = plan.difficulty;
