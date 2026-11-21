@@ -41,6 +41,7 @@ jobs:
           node --check js/runtimes/topdown/topdown-runtime.js
       - run: node tests/gameforge-brief.test.js
       - run: node tests/stage-routes.test.js
+      - run: node tests/gameflow-routes.test.js
       - run: node tests/integration-tests.js
       - name: Verificar exportação HTML com bundle atualizado
         run: |
