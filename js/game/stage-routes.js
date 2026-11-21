@@ -9,7 +9,7 @@ const PROFILES=[
  {id:'low',name:'Caminho inferior',factor:1.55,speed:1.15,reward:260,description:'Mais inimigos · maior recompensa'},
  {id:'secret',name:'Passagem secreta',factor:1.9,speed:1.25,reward:400,description:'Desafio extra · desbloqueio após 2 rotas concluídas',secret:true}
 ];
-const SUPPORTED=['platform','topdown','shooter','metroidvania'];
+const SUPPORTED=['platform','topdown','shooter'];
 const clone=o=>JSON.parse(JSON.stringify(o));
 function parse(text){
  const t=String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
@@ -60,10 +60,24 @@ function build(project,config){
      scene.name='Fase '+(i+1)+' · '+profile.name;
      scene.route={version:1,stage:i,id:profile.id};
      varyEnemies(scene,profile,project.gameType);
+     // Saída física que conclui a rota, sem saltar para outro variante da mesma fase.
+     if(project.gameType==='platform'){
+       for(const entity of scene.entities||[])if(entity.type==='door'&&!entity.targetScene)
+         entity.event='routeComplete';
+       if(!(scene.entities||[]).some(e=>e.event==='routeComplete'))
+         scene.entities.push({id:'exit_'+id,type:'door',event:'routeComplete',
+           name:'Saída da rota',x:448,y:224,locked:false});
+     } else if(project.gameType==='topdown'){
+       for(const entity of scene.entities||[])if(entity.type==='door'&&!entity.targetScene)
+         entity.event='routeComplete';
+       if(!(scene.entities||[]).some(e=>e.event==='routeComplete'))
+         scene.entities.push({id:'exit_'+id,type:'door',event:'routeComplete',
+           name:'Portal de saída',x:438,y:208,locked:false});
+     }
      scenes.push(scene);
      sceneIndex[id]={stage:i,route:profile.id};
      options.push({id:profile.id,sceneId:id,name:profile.name,description:profile.description,reward:profile.reward,secret:!!profile.secret});
-     objectives[id]=profile.description;
+     objectives[id]=profile.description+(project.gameType==='shooter'?' · Derrote o chefe.':' · Alcance a saída da rota.');
    }
    groups.push({stage:i,options});
  }
