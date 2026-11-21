@@ -19,7 +19,7 @@ function parse(text,route){
  const wants=/\b(no mesmo mapa|dentro (?:do|de um|desse) mapa|rotas? fisicas?|bifurcac(?:ao|oes)|caminhos? exploraveis?|caminhos? dentro do mapa)\b/.test(t);
  if(!wants)return null;
  return {version:1,choices:(route?.choices||['high','middle','low']).filter(x=>x in POS&&x!=='secret'),
-   secret:!!route?.secret||/\b(secret[ao]s?|escondid[ao]s?)\b/.test(t)};
+   secret:!!route?.secret||/\b(secret[ao]s?|escondid[ao]s?|segred[oa]s?)\b/.test(t)};
 }
 function active(config){return [...config.choices,...(config.secret?['secret']:[])].filter(x=>x in POS);}
 function baseEnemies(scene){return (scene.entities||[]).filter(e=>e.type==='enemy'&&!e.boss);}
